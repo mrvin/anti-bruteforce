@@ -1,0 +1,3 @@
+DROP TABLE IF EXISTS blacklist;
+
+DROP TABLE IF EXISTS whitelist;

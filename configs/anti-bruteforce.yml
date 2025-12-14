@@ -1,0 +1,29 @@
+buckets:
+    # requests per minute for login, N
+    reqPerMinuteForLogin: 10
+    # requests per minute for password, M
+    reqPerMinuteForPassword: 100
+    # requests per minute for IP, K
+    reqPerMinuteForIP: 1000
+    # in minutes
+    maxLifetimeIdle: 30
+
+# GRPC server settings
+grpc:
+    host: anti-bruteforce
+    port: 55555
+
+# database settings
+db:
+    driver: postgres
+    host: postgres
+    port: 5432
+    user: anti-bruteforce-db
+    password: anti-bruteforce-db
+    name: anti-bruteforce-db
+
+# logging settings
+logger:
+    filepath:
+    level: debug # debug, info, warn, error
+
