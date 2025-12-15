@@ -5,9 +5,9 @@ import (
 	"log/slog"
 	"net"
 
-	"github.com/mrvin/hw-otus-go/anti-bruteforce/internal/api"
 	"github.com/mrvin/hw-otus-go/anti-bruteforce/internal/ratelimiting/leakybucket"
 	sqlstorage "github.com/mrvin/hw-otus-go/anti-bruteforce/internal/storage/sql"
+	"github.com/mrvin/hw-otus-go/anti-bruteforce/pkg/api"
 	"google.golang.org/grpc"
 )
 

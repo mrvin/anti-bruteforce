@@ -1,4 +1,4 @@
-//go:generate protoc -I=api/ --go_out=internal/api --go-grpc_out=require_unimplemented_servers=false:internal/api api/anti_bruteforce_service.proto
+//go:generate protoc -I=api/ --go_out=pkg/api --go-grpc_out=require_unimplemented_servers=false:pkg/api api/anti_bruteforce_service.proto
 package main
 
 import (

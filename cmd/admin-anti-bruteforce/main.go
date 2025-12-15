@@ -1,4 +1,4 @@
-//go:generate protoc -I=../../api/ --go_out=../../internal/api --go-grpc_out=require_unimplemented_servers=false:../../internal/api ../../api/anti_bruteforce_service.proto
+//go:generate protoc -I=../../api/ --go_out=../../pkg/api --go-grpc_out=require_unimplemented_servers=false:../../pkg/api ../../api/anti_bruteforce_service.proto
 package main
 
 import (
@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mrvin/hw-otus-go/anti-bruteforce/internal/api"
+	"github.com/mrvin/hw-otus-go/anti-bruteforce/pkg/api"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/types/known/emptypb"

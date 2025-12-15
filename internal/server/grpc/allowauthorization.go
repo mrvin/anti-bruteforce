@@ -7,8 +7,8 @@ import (
 	"net"
 	"time"
 
-	"github.com/mrvin/hw-otus-go/anti-bruteforce/internal/api"
 	sqlstorage "github.com/mrvin/hw-otus-go/anti-bruteforce/internal/storage/sql"
+	"github.com/mrvin/hw-otus-go/anti-bruteforce/pkg/api"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
