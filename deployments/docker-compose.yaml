@@ -1,18 +1,35 @@
-version: "3.9"
 services:
-    anti-bruteforce:
+    anti-bruteforce-prod:
+        profiles: ['prod']
+#        image: ghcr.io/mrvin/anti-bruteforce:v1.0.0
         build:
          context: ../
          dockerfile: Dockerfile
+         target: prod
         ports:
-         - "55555:55555" # gRPC API
+         - "50051:50051" # gRPC API
         depends_on:
-         - migrate
+          migrate:
+            condition: service_completed_successfully
+        volumes:
+         - ./../configs/anti-bruteforce.yml:/etc/anti-bruteforce/anti-bruteforce.yml
+
+    anti-bruteforce-dev:
+        profiles: ['dev']
+        build:
+         context: ../
+         dockerfile: Dockerfile
+         target: dev
+        ports:
+         - "50051:50051" # gRPC API
+        depends_on:
+          migrate:
+            condition: service_completed_successfully
         volumes:
          - ./../configs/anti-bruteforce.yml:/etc/anti-bruteforce/anti-bruteforce.yml
 
     migrate:
-        image: migrate/migrate:v4.17.1
+        image: migrate/migrate:v4.19.1
         command: ["-path", "/migrations", "-database",  "postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:${POSTGRES_PORT}/${POSTGRES_DB}?sslmode=disable", "up"]
         depends_on:
           postgres:
@@ -22,13 +39,13 @@ services:
 
     # Create service with PostgreSQL.
     postgres:
-        image: postgres:16.3-alpine3.20
+        image: postgres:18.1-alpine3.23
         ports:
-         - "${POSTGRES_PORT}"
-        user: root
+         - "5432"
         env_file:
          - postgres.env
         healthcheck:
           test: ["CMD", "pg_isready", "-q", "-d", "${POSTGRES_DB}", "-U", "${POSTGRES_USER}"]
+          interval: 1s
         volumes:
          - ${HOME}/volumes_docker/anti-bruteforce/postgres-data:/var/lib/postgresql/data

@@ -1,16 +1,17 @@
 ## Build
-FROM golang:1.22.4-alpine AS build
+FROM golang:1.25.5-alpine AS dev
 
-MAINTAINER mrvin <v.v.vinogradovv@gmail.com>
+LABEL maintainer="mrvin v.v.vinogradovv@gmail.com"
 
 RUN apk add --update make
 
 WORKDIR  /app
 
 # Copy the code into the container.
-COPY main.go Makefile ./
+COPY cmd/anti-bruteforce cmd/anti-bruteforce
 COPY internal internal
 COPY pkg pkg
+COPY Makefile ./
 
 # Copy and download dependency using go mod.
 COPY go.mod go.sum ./
@@ -18,11 +19,23 @@ RUN go mod download
 
 RUN make build
 
+ENV TZ=Europe/Moscow
+
+EXPOSE 50051
+
+ENTRYPOINT ["/app/bin/anti-bruteforce"]
+
 ## Deploy
-FROM scratch
+FROM scratch AS prod
+
+LABEL maintainer="mrvin v.v.vinogradovv@gmail.com"
 
 WORKDIR /
 
-COPY --from=build ["/app/bin/anti-bruteforce", "/"]
+COPY --from=dev ["/app/bin/anti-bruteforce", "/usr/local/bin/anti-bruteforce"]
 
-ENTRYPOINT ["/anti-bruteforce"]
+ENV TZ=Europe/Moscow
+
+EXPOSE 50051
+
+ENTRYPOINT ["/usr/local/bin/anti-bruteforce"]

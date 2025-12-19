@@ -10,8 +10,8 @@ buckets:
 
 # GRPC server settings
 grpc:
-    host: anti-bruteforce
-    port: 55555
+    host: 0.0.0.0
+    port: 50051
 
 # database settings
 db:
