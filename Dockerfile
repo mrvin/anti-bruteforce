@@ -3,7 +3,7 @@ FROM golang:1.25.5-alpine AS dev
 
 LABEL maintainer="mrvin v.v.vinogradovv@gmail.com"
 
-RUN apk add --update make
+RUN apk add --update make && apk add tzdata
 
 WORKDIR  /app
 
@@ -19,6 +19,8 @@ RUN go mod download
 
 RUN make build
 
+RUN mkdir /var/log/anti-bruteforce/
+
 ENV TZ=Europe/Moscow
 
 EXPOSE 50051
@@ -32,6 +34,8 @@ LABEL maintainer="mrvin v.v.vinogradovv@gmail.com"
 
 WORKDIR /
 
+COPY --from=dev ["/var/log/anti-bruteforce/", "/var/log/anti-bruteforce/"]
+COPY --from=dev ["/usr/share/zoneinfo", "/usr/share/zoneinfo"]
 COPY --from=dev ["/app/bin/anti-bruteforce", "/usr/local/bin/anti-bruteforce"]
 
 ENV TZ=Europe/Moscow

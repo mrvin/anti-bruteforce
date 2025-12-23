@@ -12,8 +12,8 @@ import (
 )
 
 type Conf struct {
-	Host string `yaml:"host"`
-	Port int    `yaml:"port"`
+	Host string
+	Port string
 }
 
 type Server struct {
@@ -31,7 +31,7 @@ func New(conf *Conf, buckets *leakybucket.Buckets, storage *sqlstorage.Storage) 
 	server.storage = storage
 
 	var err error
-	server.addr = fmt.Sprintf("%s:%d", conf.Host, conf.Port)
+	server.addr = net.JoinHostPort(conf.Host, conf.Port)
 	server.conn, err = net.Listen("tcp", server.addr)
 	if err != nil {
 		return nil, fmt.Errorf("establish tcp connection: %w", err)

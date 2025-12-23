@@ -13,8 +13,8 @@ build-ab-admin:
 
 test:
 	go test -cover -v -race -count=10 ./internal/ratelimiting/leakybucket/
-up:
-	docker compose -f deployments/docker-compose.yaml --env-file deployments/postgres.env --profile prod up --build
+run:
+	docker compose -f deployments/docker-compose.yaml --env-file configs/anti-bruteforce.env --profile prod up --build
 down:
-	docker compose -f deployments/docker-compose.yaml --env-file deployments/postgres.env --profile prod down
-.PHONY: test up down
+	docker compose -f deployments/docker-compose.yaml --env-file configs/anti-bruteforce.env --profile prod down
+.PHONY: test run down

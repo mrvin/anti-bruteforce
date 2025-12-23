@@ -9,10 +9,10 @@ import (
 var timeInterval = time.Minute
 
 type Conf struct {
-	LimitLogin      uint64 `yaml:"reqPerMinuteForLogin"`
-	LimitPassword   uint64 `yaml:"reqPerMinuteForPassword"`
-	LimitIP         uint64 `yaml:"reqPerMinuteForIP"`
-	MaxLifetimeIdle uint32 `yaml:"maxLifetimeIdle"`
+	LimitLogin      uint64
+	LimitPassword   uint64
+	LimitIP         uint64
+	MaxLifetimeIdle uint32
 }
 
 type Bucket struct {

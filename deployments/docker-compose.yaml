@@ -8,11 +8,13 @@ services:
          target: prod
         ports:
          - "50051:50051" # gRPC API
+        env_file:
+         - ../configs/anti-bruteforce.env
         depends_on:
           migrate:
             condition: service_completed_successfully
         volumes:
-         - ./../configs/anti-bruteforce.yml:/etc/anti-bruteforce/anti-bruteforce.yml
+         - ${HOME}/volumes_docker/anti-bruteforce/log:/var/log/anti-bruteforce/
 
     anti-bruteforce-dev:
         profiles: ['dev']
@@ -22,11 +24,13 @@ services:
          target: dev
         ports:
          - "50051:50051" # gRPC API
+        env_file:
+         - ../configs/anti-bruteforce.env
         depends_on:
           migrate:
             condition: service_completed_successfully
         volumes:
-         - ./../configs/anti-bruteforce.yml:/etc/anti-bruteforce/anti-bruteforce.yml
+         - ${HOME}/volumes_docker/anti-bruteforce/log:/var/log/anti-bruteforce/
 
     migrate:
         image: migrate/migrate:v4.19.1
@@ -43,7 +47,7 @@ services:
         ports:
          - "5432"
         env_file:
-         - postgres.env
+         - ../configs/anti-bruteforce.env
         healthcheck:
           test: ["CMD", "pg_isready", "-q", "-d", "${POSTGRES_DB}", "-U", "${POSTGRES_USER}"]
           interval: 1s

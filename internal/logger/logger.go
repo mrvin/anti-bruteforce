@@ -8,8 +8,8 @@ import (
 )
 
 type Conf struct {
-	FilePath string `yaml:"filepath"`
-	Level    string `yaml:"level"`
+	FilePath string
+	Level    string
 }
 
 func Init(conf *Conf) (*os.File, error) {

@@ -3,7 +3,6 @@ package main
 
 import (
 	"context"
-	"flag"
 	"log"
 	"log/slog"
 
@@ -14,42 +13,32 @@ import (
 	sqlstorage "github.com/mrvin/hw-otus-go/anti-bruteforce/internal/storage/sql"
 )
 
-type Config struct {
-	Buckets leakybucket.Conf `yaml:"buckets"`
-	DB      sqlstorage.Conf  `yaml:"db"`
-	GRPC    grpcserver.Conf  `yaml:"grpc"`
-	Logger  logger.Conf      `yaml:"logger"`
-}
-
 func main() {
-	ctx := context.Background()
+	// init config
+	var conf config.Config
+	conf.LoadFromEnv()
 
-	configFile := flag.String("config", "/etc/anti-bruteforce/anti-bruteforce.yml", "path to configuration file")
-	flag.Parse()
-
-	var conf Config
-	if err := config.Parse(*configFile, &conf); err != nil {
-		log.Printf("Parse config: %v", err)
-		return
-	}
-
+	// init logger
 	logFile, err := logger.Init(&conf.Logger)
 	if err != nil {
-		log.Printf("Init logger: %v\n", err)
+		log.Printf("Init logger: %v", err)
 		return
 	}
+	slog.Info("Init logger", slog.String("level", conf.Logger.Level))
 	defer func() {
 		if err := logFile.Close(); err != nil {
 			slog.Error("Close log file: " + err.Error())
 		}
 	}()
-	slog.Info("Init logger", slog.String("Logging level", conf.Logger.Level))
 
+	// init storage
+	ctx := context.Background()
 	storage, err := sqlstorage.New(ctx, &conf.DB)
 	if err != nil {
 		slog.Error("Failed to init storage: " + err.Error())
 		return
 	}
+	slog.Info("Connected to database")
 	defer func() {
 		if err := storage.Close(); err != nil {
 			slog.Error("Failed to close storage: " + err.Error())
@@ -57,10 +46,10 @@ func main() {
 			slog.Info("Closing the database connection")
 		}
 	}()
-	slog.Info("Connected to database")
 
 	buckets := leakybucket.New(&conf.Buckets)
 
+	// Start server
 	serverGRPC, err := grpcserver.New(&conf.GRPC, buckets, storage)
 	if err != nil {
 		slog.Error("New gRPC server: " + err.Error())
