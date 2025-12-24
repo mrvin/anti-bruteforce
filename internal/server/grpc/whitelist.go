@@ -52,7 +52,7 @@ func (s *Server) DeleteNetworkFromWhitelist(ctx context.Context, req *api.ReqNet
 func list(listNetwork *sqlstorage.ListIP) *api.ResListNetworks {
 	pbNetworks := make([]string, len(listNetwork.List))
 	listNetwork.RLock()
-	defer listNetwork.Unlock()
+	defer listNetwork.RUnlock()
 	for i, network := range listNetwork.List {
 		pbNetworks[i] = network.String()
 	}

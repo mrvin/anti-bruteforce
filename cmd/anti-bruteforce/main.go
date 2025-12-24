@@ -49,15 +49,12 @@ func main() {
 
 	buckets := leakybucket.New(&conf.Buckets)
 
-	// Start server
-	serverGRPC, err := grpcserver.New(&conf.GRPC, buckets, storage)
+	server, err := grpcserver.New(&conf.GRPC, buckets, storage)
 	if err != nil {
 		slog.Error("New gRPC server: " + err.Error())
 		return
 	}
 
-	if err := serverGRPC.Start(); err != nil {
-		slog.Error("Failed to start gRPC server: " + err.Error())
-		return
-	}
+	// Start server
+	server.Run(ctx)
 }

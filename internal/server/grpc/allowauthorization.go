@@ -56,7 +56,7 @@ func (s *Server) CleanBucket(_ context.Context, req *api.ReqCleanBucket) (*empty
 
 func isList(ip net.IP, listNetwork *sqlstorage.ListIP) bool {
 	listNetwork.RLock()
-	defer listNetwork.Unlock()
+	defer listNetwork.RUnlock()
 	for _, network := range listNetwork.List {
 		if network.Contains(ip) {
 			return true

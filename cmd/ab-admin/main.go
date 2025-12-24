@@ -19,7 +19,7 @@ import (
 const contextTimeout = time.Second
 
 func main() { //nolint:funlen,gocognit,cyclop
-	conn, err := grpc.NewClient("localhost:55555", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient("localhost:50051", grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		log.Fatalf("books-client: %v", err)
 	}

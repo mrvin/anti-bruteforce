@@ -1,9 +1,13 @@
 package grpcserver
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"net"
+	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/mrvin/hw-otus-go/anti-bruteforce/internal/ratelimiting/leakybucket"
 	sqlstorage "github.com/mrvin/hw-otus-go/anti-bruteforce/internal/storage/sql"
@@ -45,17 +49,27 @@ func New(conf *Conf, buckets *leakybucket.Buckets, storage *sqlstorage.Storage) 
 	return &server, nil
 }
 
-func (s *Server) Start() error {
+func (s *Server) Run(ctx context.Context) {
+	ctx, cancel := signal.NotifyContext(
+		ctx,
+		os.Interrupt,    // SIGINT, (Control-C)
+		syscall.SIGTERM, // systemd
+		syscall.SIGQUIT,
+	)
+
+	go func() {
+		defer cancel()
+		if err := s.serv.Serve(s.conn); err != nil {
+			slog.Error("Failed to start gRPC server: " + err.Error())
+			return
+		}
+	}()
 	slog.Info("Start gRPC server: " + s.addr)
-	if err := s.serv.Serve(s.conn); err != nil {
-		return fmt.Errorf("start grpc server: %w", err)
-	}
 
-	return nil
-}
+	<-ctx.Done()
 
-func (s *Server) Stop() {
-	slog.Info("Stop gRPC server")
 	s.serv.GracefulStop()
 	s.conn.Close()
+
+	slog.Info("Stop gRPC server")
 }
