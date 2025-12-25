@@ -34,13 +34,11 @@ func (s *Server) DeleteNetworkFromBlacklist(ctx context.Context, req *api.ReqNet
 		return &emptypb.Empty{}, err
 	}
 
-	s.storage.CacheBlacklist.RLock()
-	defer s.storage.CacheBlacklist.RUnlock()
+	s.storage.CacheBlacklist.Lock()
+	defer s.storage.CacheBlacklist.Unlock()
 	for i := 0; i < len(s.storage.CacheBlacklist.List); i++ {
 		if network.String() == s.storage.CacheBlacklist.List[i].String() {
-			s.storage.CacheBlacklist.Lock()
 			s.storage.CacheBlacklist.List = slices.Delete(s.storage.CacheBlacklist.List, i, i+1)
-			s.storage.CacheBlacklist.Unlock()
 			break
 		}
 	}

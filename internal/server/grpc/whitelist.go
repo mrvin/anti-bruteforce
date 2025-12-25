@@ -35,13 +35,11 @@ func (s *Server) DeleteNetworkFromWhitelist(ctx context.Context, req *api.ReqNet
 		return &emptypb.Empty{}, err
 	}
 
-	s.storage.CacheWhitelist.RLock()
-	defer s.storage.CacheWhitelist.RUnlock()
+	s.storage.CacheWhitelist.Lock()
+	defer s.storage.CacheWhitelist.Unlock()
 	for i := 0; i < len(s.storage.CacheWhitelist.List); i++ {
 		if network.String() == s.storage.CacheWhitelist.List[i].String() {
-			s.storage.CacheWhitelist.Lock()
 			s.storage.CacheWhitelist.List = slices.Delete(s.storage.CacheWhitelist.List, i, i+1)
-			s.storage.CacheWhitelist.Unlock()
 			break
 		}
 	}

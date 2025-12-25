@@ -21,7 +21,7 @@ const contextTimeout = time.Second
 func main() { //nolint:funlen,gocognit,cyclop
 	conn, err := grpc.NewClient("localhost:50051", grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		log.Fatalf("books-client: %v", err)
+		log.Fatalf("anti-bruteforce client: %v", err)
 	}
 	defer conn.Close()
 	client := api.NewAntiBruteForceServiceClient(conn)
