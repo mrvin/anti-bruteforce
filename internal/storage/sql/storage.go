@@ -10,7 +10,7 @@ import (
 
 	// Add pure Go Postgres driver for the database/sql package.
 	_ "github.com/lib/pq"
-	"github.com/mrvin/hw-otus-go/anti-bruteforce/pkg/retry"
+	"github.com/mrvin/anti-bruteforce/pkg/retry"
 )
 
 const retriesConnect = 5

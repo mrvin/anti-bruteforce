@@ -1,4 +1,4 @@
-module github.com/mrvin/hw-otus-go/anti-bruteforce
+module github.com/mrvin/anti-bruteforce
 
 go 1.22.4
 

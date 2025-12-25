@@ -9,9 +9,9 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/mrvin/hw-otus-go/anti-bruteforce/internal/ratelimiting/leakybucket"
-	sqlstorage "github.com/mrvin/hw-otus-go/anti-bruteforce/internal/storage/sql"
-	"github.com/mrvin/hw-otus-go/anti-bruteforce/pkg/api"
+	"github.com/mrvin/anti-bruteforce/internal/ratelimiting/leakybucket"
+	sqlstorage "github.com/mrvin/anti-bruteforce/internal/storage/sql"
+	"github.com/mrvin/anti-bruteforce/pkg/api"
 	"google.golang.org/grpc"
 )
 

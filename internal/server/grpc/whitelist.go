@@ -5,8 +5,8 @@ import (
 	"net"
 	"slices"
 
-	sqlstorage "github.com/mrvin/hw-otus-go/anti-bruteforce/internal/storage/sql"
-	"github.com/mrvin/hw-otus-go/anti-bruteforce/pkg/api"
+	sqlstorage "github.com/mrvin/anti-bruteforce/internal/storage/sql"
+	"github.com/mrvin/anti-bruteforce/pkg/api"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 

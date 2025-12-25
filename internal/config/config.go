@@ -5,10 +5,10 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/mrvin/hw-otus-go/anti-bruteforce/internal/logger"
-	"github.com/mrvin/hw-otus-go/anti-bruteforce/internal/ratelimiting/leakybucket"
-	grpcserver "github.com/mrvin/hw-otus-go/anti-bruteforce/internal/server/grpc"
-	sqlstorage "github.com/mrvin/hw-otus-go/anti-bruteforce/internal/storage/sql"
+	"github.com/mrvin/anti-bruteforce/internal/logger"
+	"github.com/mrvin/anti-bruteforce/internal/ratelimiting/leakybucket"
+	grpcserver "github.com/mrvin/anti-bruteforce/internal/server/grpc"
+	sqlstorage "github.com/mrvin/anti-bruteforce/internal/storage/sql"
 )
 
 type Config struct {

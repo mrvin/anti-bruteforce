@@ -5,7 +5,7 @@ import (
 	"net"
 	"slices"
 
-	"github.com/mrvin/hw-otus-go/anti-bruteforce/pkg/api"
+	"github.com/mrvin/anti-bruteforce/pkg/api"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
