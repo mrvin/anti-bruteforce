@@ -10,7 +10,7 @@ import (
 	"syscall"
 
 	"github.com/mrvin/anti-bruteforce/internal/ratelimiting/leakybucket"
-	sqlstorage "github.com/mrvin/anti-bruteforce/internal/storage/sql"
+	"github.com/mrvin/anti-bruteforce/internal/storage"
 	"github.com/mrvin/anti-bruteforce/pkg/api"
 	"google.golang.org/grpc"
 )
@@ -25,10 +25,10 @@ type Server struct {
 	conn    net.Listener
 	buckets *leakybucket.Buckets
 	addr    string
-	storage *sqlstorage.Storage
+	storage storage.Storage
 }
 
-func New(conf *Conf, buckets *leakybucket.Buckets, storage *sqlstorage.Storage) (*Server, error) {
+func New(conf *Conf, buckets *leakybucket.Buckets, storage storage.Storage) (*Server, error) {
 	var server Server
 
 	server.buckets = buckets
@@ -69,7 +69,7 @@ func (s *Server) Run(ctx context.Context) {
 	<-ctx.Done()
 
 	s.serv.GracefulStop()
-	s.conn.Close()
+	s.conn.Close() //nolint:errcheck
 
 	slog.Info("Stop gRPC server")
 }

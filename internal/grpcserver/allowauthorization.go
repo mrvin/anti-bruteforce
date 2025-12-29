@@ -7,7 +7,6 @@ import (
 	"net"
 	"time"
 
-	sqlstorage "github.com/mrvin/anti-bruteforce/internal/storage/sql"
 	"github.com/mrvin/anti-bruteforce/pkg/api"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -21,11 +20,12 @@ func (s *Server) AllowAuthorization(_ context.Context, req *api.ReqAllowAuthoriz
 		return &res, errors.New("parse ip")
 	}
 
-	if isList(ip, &s.storage.CacheWhitelist) {
+	if s.storage.Whitelist.Contains(ip) {
 		res.Allow = true
 		return &res, nil
 	}
-	if isList(ip, &s.storage.CacheBlacklist) {
+	if s.storage.Blacklist.Contains(ip) {
+		res.Allow = false
 		return &res, nil
 	}
 
@@ -52,18 +52,6 @@ func (s *Server) CleanBucket(_ context.Context, req *api.ReqCleanBucket) (*empty
 	}
 
 	return &emptypb.Empty{}, nil
-}
-
-func isList(ip net.IP, listNetwork *sqlstorage.ListIP) bool {
-	listNetwork.RLock()
-	defer listNetwork.RUnlock()
-	for _, network := range listNetwork.List {
-		if network.Contains(ip) {
-			return true
-		}
-	}
-
-	return false
 }
 
 func trace(ip string, res *api.ResAllowAuthorization) func() {

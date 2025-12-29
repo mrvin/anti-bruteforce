@@ -23,7 +23,7 @@ func main() { //nolint:funlen,gocognit,cyclop
 	if err != nil {
 		log.Fatalf("anti-bruteforce client: %v", err)
 	}
-	defer conn.Close()
+	defer conn.Close() //nolint:errcheck
 	client := api.NewAntiBruteForceServiceClient(conn)
 exit:
 	for {

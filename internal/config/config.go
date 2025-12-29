@@ -5,9 +5,9 @@ import (
 	"os"
 	"strconv"
 
+	"github.com/mrvin/anti-bruteforce/internal/grpcserver"
 	"github.com/mrvin/anti-bruteforce/internal/logger"
 	"github.com/mrvin/anti-bruteforce/internal/ratelimiting/leakybucket"
-	grpcserver "github.com/mrvin/anti-bruteforce/internal/server/grpc"
 	sqlstorage "github.com/mrvin/anti-bruteforce/internal/storage/sql"
 )
 
