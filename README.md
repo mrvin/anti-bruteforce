@@ -99,6 +99,9 @@ CLI может работать через GRPC/HTTP интерфейс.
   и протестировать через `make test` - 1 балл.
 * Понятность и чистота кода - до 3 баллов.
 
+### Todo list
+- Уточнить ошибки для некоторых методов.
+
 #### Зачёт от 10 баллов
 
 1. https://dev.to/techschoolguru/how-to-secure-grpc-connection-with-ssl-tls-in-go-4ph
