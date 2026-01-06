@@ -51,10 +51,10 @@ func (c *Config) LoadFromEnv() {
 		slog.Warn("Empty limit ip")
 	}
 	if strMaxLifetimeIdle := os.Getenv("MAX_LIFETIME_IDLE"); strMaxLifetimeIdle != "" {
-		if maxLifetimeIdle, err := strconv.ParseUint(strMaxLifetimeIdle, 10, 32); err != nil {
+		if maxLifetimeIdle, err := strconv.ParseUint(strMaxLifetimeIdle, 10, 64); err != nil {
 			slog.Warn("invalid limit ip: " + strMaxLifetimeIdle)
 		} else {
-			c.Buckets.MaxLifetimeIdle = uint32(maxLifetimeIdle)
+			c.Buckets.MaxLifetimeIdle = maxLifetimeIdle
 		}
 	} else {
 		slog.Warn("Empty max lifetime idle")

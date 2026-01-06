@@ -1,9 +1,14 @@
 package leakybucket
 
 import (
+	"context"
 	"fmt"
+	"log/slog"
 	"sync"
+	"sync/atomic"
 	"time"
+
+	"github.com/mrvin/anti-bruteforce/internal/ratelimiting"
 )
 
 var timeInterval = time.Minute
@@ -12,124 +17,158 @@ type Conf struct {
 	LimitLogin      uint64
 	LimitPassword   uint64
 	LimitIP         uint64
-	MaxLifetimeIdle uint32
+	MaxLifetimeIdle uint64
 }
 
 type Bucket struct {
-	rate         uint64
-	lifetimeIdle uint32
-	sync.Mutex
-}
-
-type mBuckets struct {
-	buckets map[string]*Bucket
-	sync.RWMutex
+	rate         atomic.Uint64
+	lifetimeIdle atomic.Uint64
 }
 
 type Buckets struct {
-	mBucketsLogin    mBuckets
-	mBucketsPassword mBuckets
-	mBucketsIP       mBuckets
+	mBucketsLogin    sync.Map // map[string]*Bucket
+	mBucketsPassword sync.Map
+	mBucketsIP       sync.Map
 
 	limitLogin    uint64
 	limitPassword uint64
 	limitIP       uint64
+	done          chan struct{}
+	doneOnce      sync.Once
 }
 
 func New(conf *Conf) *Buckets {
-	allBuckets := Buckets{
-		mBucketsLogin:    mBuckets{make(map[string]*Bucket), sync.RWMutex{}},
-		mBucketsPassword: mBuckets{make(map[string]*Bucket), sync.RWMutex{}},
-		mBucketsIP:       mBuckets{make(map[string]*Bucket), sync.RWMutex{}},
-		limitLogin:       conf.LimitLogin,
-		limitPassword:    conf.LimitPassword,
-		limitIP:          conf.LimitIP,
+	buckets := &Buckets{
+		limitLogin:    conf.LimitLogin,
+		limitPassword: conf.LimitPassword,
+		limitIP:       conf.LimitIP,
+		done:          make(chan struct{}),
 	}
 
+	// Если MaxLifetimeIdle == 0 — пропускаем очистку (без удаления)
+	if conf.MaxLifetimeIdle != 0 {
+		buckets.startCleanup(conf.MaxLifetimeIdle)
+	}
+
+	return buckets
+}
+
+func (b *Buckets) startCleanup(maxLifetimeIdle uint64) {
 	ticker := time.NewTicker(timeInterval)
 	go func() {
 		defer ticker.Stop()
-		for range ticker.C {
-			cleanAndDeleteBucket(&allBuckets.mBucketsLogin, conf.MaxLifetimeIdle)
-
-			cleanAndDeleteBucket(&allBuckets.mBucketsPassword, conf.MaxLifetimeIdle)
-
-			cleanAndDeleteBucket(&allBuckets.mBucketsIP, conf.MaxLifetimeIdle)
+		for {
+			select {
+			case <-ticker.C:
+				slog.Debug("Start cleaning buckets")
+				cleanAndDeleteBucket(&b.mBucketsIP, maxLifetimeIdle)
+				cleanAndDeleteBucket(&b.mBucketsPassword, maxLifetimeIdle)
+				cleanAndDeleteBucket(&b.mBucketsLogin, maxLifetimeIdle)
+			case <-b.done:
+				return
+			}
 		}
 	}()
-
-	return &allBuckets
 }
 
-func cleanAndDeleteBucket(b *mBuckets, maxLifetimeIdle uint32) {
-	b.RLock()
-	for login, bucket := range b.buckets {
-		bucket.Lock()
-		if bucket.rate == 0 {
-			bucket.lifetimeIdle++
-			if bucket.lifetimeIdle >= maxLifetimeIdle {
-				b.Lock()
-				delete(b.buckets, login)
-				b.Unlock()
+func cleanAndDeleteBucket(m *sync.Map, maxLifetimeIdle uint64) {
+	toDelete := make([]string, 0)
+
+	m.Range(func(key, value interface{}) bool {
+		bucket := value.(*Bucket)
+
+		// Если rate == 0, увеличиваем lifetimeIdle на 1
+		// Иначе сбрасываем lifetimeIdle в 0 и rate в 0
+		for {
+			rate := bucket.rate.Load()
+			if rate == 0 {
+				currentLifetimeIdle := bucket.lifetimeIdle.Load()
+				if currentLifetimeIdle >= maxLifetimeIdle-1 {
+					toDelete = append(toDelete, key.(string))
+					break
+				}
+				if bucket.lifetimeIdle.CompareAndSwap(currentLifetimeIdle, currentLifetimeIdle+1) {
+					break
+				}
+				continue
 			}
-		} else {
-			bucket.rate = 0
-			bucket.lifetimeIdle = 0
+
+			bucket.rate.Store(0)
+			bucket.lifetimeIdle.Store(0)
+			break
 		}
-		bucket.Unlock()
+
+		return true
+	})
+
+	for _, key := range toDelete {
+		m.Delete(key)
 	}
-	b.RUnlock()
 }
 
-func check(keyBucket string, b *mBuckets, limit uint64) bool {
-	b.Lock()
-	bucket, ok := b.buckets[keyBucket]
-	if !ok {
-		bucket = &Bucket{}
-		b.buckets[keyBucket] = bucket
-	}
-	b.Unlock()
-
-	bucket.Lock()
-	defer bucket.Unlock()
-	if bucket.rate >= limit {
+func (b *Buckets) Allow(ctx context.Context, ip, password, login string) bool {
+	if !allow(ctx, ip, &b.mBucketsIP, b.limitIP) {
 		return false
 	}
-	bucket.rate++
+	if !allow(ctx, password, &b.mBucketsPassword, b.limitPassword) {
+		return false
+	}
+	if !allow(ctx, login, &b.mBucketsLogin, b.limitLogin) {
+		return false
+	}
 
 	return true
 }
 
-func (b *Buckets) СheckLogin(keyBucket string) bool {
-	return check(keyBucket, &b.mBucketsLogin, b.limitLogin)
-}
+func allow(ctx context.Context, keyBucket string, m *sync.Map, limit uint64) bool {
+	val, _ := m.LoadOrStore(keyBucket, &Bucket{})
+	bucket := val.(*Bucket)
 
-func (b *Buckets) СheckPassword(keyBucket string) bool {
-	return check(keyBucket, &b.mBucketsPassword, b.limitPassword)
-}
-
-func (b *Buckets) СheckIP(keyBucket string) bool {
-	return check(keyBucket, &b.mBucketsIP, b.limitIP)
-}
-
-func cleanBucket(keyBucket string, b *mBuckets) error {
-	b.RLock()
-	bucket, ok := b.buckets[keyBucket]
-	b.RUnlock()
-	if !ok {
-		return fmt.Errorf("bucket not found: %s", keyBucket)
+	// Попытки увеличить rate на 1, если не превышен лимит
+	// Если превышен, вернуть false
+	// Иначе вернуть true
+	for {
+		select {
+		case <-ctx.Done():
+			return false
+		default:
+		}
+		currentRate := bucket.rate.Load()
+		if currentRate >= limit {
+			return false
+		}
+		if bucket.rate.CompareAndSwap(currentRate, currentRate+1) {
+			return true
+		}
 	}
-	bucket.Lock()
-	bucket.rate = 0
-	bucket.Unlock()
+}
+
+func cleanBucket(keyBucket string, m *sync.Map) error {
+	val, ok := m.Load(keyBucket)
+	if !ok {
+		return fmt.Errorf("%w: %s", ratelimiting.ErrBucketNotFound, keyBucket)
+	}
+	bucket := val.(*Bucket)
+	bucket.rate.Store(0)
+	bucket.lifetimeIdle.Store(0)
 
 	return nil
 }
 
-func (b *Buckets) CleanBucketLogin(keyBucket string) error {
-	return cleanBucket(keyBucket, &b.mBucketsLogin)
+func (b *Buckets) CleanBucketIP(ip string) error {
+	return cleanBucket(ip, &b.mBucketsIP)
 }
 
-func (b *Buckets) CleanBucketIP(keyBucket string) error {
-	return cleanBucket(keyBucket, &b.mBucketsIP)
+func (b *Buckets) CleanBucketPassword(password string) error {
+	return cleanBucket(password, &b.mBucketsPassword)
+}
+
+func (b *Buckets) CleanBucketLogin(login string) error {
+	return cleanBucket(login, &b.mBucketsLogin)
+}
+
+func (b *Buckets) Stop() {
+	b.doneOnce.Do(func() {
+		close(b.done)
+	})
 }

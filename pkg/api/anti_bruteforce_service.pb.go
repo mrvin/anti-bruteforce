@@ -217,6 +217,7 @@ func (x *ResListNetworks) GetNetworks() []string {
 type ReqCleanBucket struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Login         string                 `protobuf:"bytes,1,opt,name=login,proto3" json:"login,omitempty"`
+	Password      string                 `protobuf:"bytes,2,opt,name=password,proto3" json:"password,omitempty"`
 	Ip            string                 `protobuf:"bytes,3,opt,name=ip,proto3" json:"ip,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -259,6 +260,13 @@ func (x *ReqCleanBucket) GetLogin() string {
 	return ""
 }
 
+func (x *ReqCleanBucket) GetPassword() string {
+	if x != nil {
+		return x.Password
+	}
+	return ""
+}
+
 func (x *ReqCleanBucket) GetIp() string {
 	if x != nil {
 		return x.Ip
@@ -281,9 +289,10 @@ const file_anti_bruteforce_service_proto_rawDesc = "" +
 	"ReqNetwork\x12\x18\n" +
 	"\anetwork\x18\x01 \x01(\tR\anetwork\"-\n" +
 	"\x0fResListNetworks\x12\x1a\n" +
-	"\bnetworks\x18\x01 \x03(\tR\bnetworks\"6\n" +
+	"\bnetworks\x18\x01 \x03(\tR\bnetworks\"R\n" +
 	"\x0eReqCleanBucket\x12\x14\n" +
-	"\x05login\x18\x01 \x01(\tR\x05login\x12\x0e\n" +
+	"\x05login\x18\x01 \x01(\tR\x05login\x12\x1a\n" +
+	"\bpassword\x18\x02 \x01(\tR\bpassword\x12\x0e\n" +
 	"\x02ip\x18\x03 \x01(\tR\x02ip2\x9c\x05\n" +
 	"\x15AntiBruteForceService\x12d\n" +
 	"\x12AllowAuthorization\x12%.antibruteforce.ReqAllowAuthorization\x1a%.antibruteforce.ResAllowAuthorization\"\x00\x12M\n" +

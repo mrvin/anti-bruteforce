@@ -6,6 +6,20 @@ import "google/protobuf/empty.proto";
 
 option go_package = ".;api";
 
+service AntiBruteForceService {
+	rpc AllowAuthorization (ReqAllowAuthorization) returns (ResAllowAuthorization) {}
+
+	rpc AddNetworkToWhitelist (ReqNetwork) returns (google.protobuf.Empty) {}
+	rpc DeleteNetworkFromWhitelist (ReqNetwork) returns (google.protobuf.Empty) {}
+	rpc Whitelist (google.protobuf.Empty) returns (ResListNetworks) {}
+
+	rpc AddNetworkToBlacklist (ReqNetwork) returns (google.protobuf.Empty) {}
+	rpc DeleteNetworkFromBlacklist (ReqNetwork) returns (google.protobuf.Empty) {}
+	rpc Blacklist (google.protobuf.Empty) returns (ResListNetworks) {}
+
+	rpc CleanBucket(ReqCleanBucket) returns (google.protobuf.Empty) {}
+}
+
 message ReqAllowAuthorization {
 	string login = 1;
 	string password = 2;
@@ -26,19 +40,6 @@ message ResListNetworks {
 
 message ReqCleanBucket {
 	string login = 1;
+	string password = 2;
 	string ip = 3;
-}
-
-service AntiBruteForceService {
-	rpc AllowAuthorization (ReqAllowAuthorization) returns (ResAllowAuthorization) {}
-	
-	rpc AddNetworkToWhitelist (ReqNetwork) returns (google.protobuf.Empty) {}
-	rpc DeleteNetworkFromWhitelist (ReqNetwork) returns (google.protobuf.Empty) {}
-	rpc Whitelist (google.protobuf.Empty) returns (ResListNetworks) {}
-	
-	rpc AddNetworkToBlacklist (ReqNetwork) returns (google.protobuf.Empty) {}
-	rpc DeleteNetworkFromBlacklist (ReqNetwork) returns (google.protobuf.Empty) {}
-	rpc Blacklist (google.protobuf.Empty) returns (ResListNetworks) {}
-	
-	rpc CleanBucket(ReqCleanBucket) returns (google.protobuf.Empty) {}
 }

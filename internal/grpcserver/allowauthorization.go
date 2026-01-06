@@ -12,7 +12,7 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-func (s *Server) AllowAuthorization(_ context.Context, req *api.ReqAllowAuthorization) (*api.ResAllowAuthorization, error) {
+func (s *Server) AllowAuthorization(ctx context.Context, req *api.ReqAllowAuthorization) (*api.ResAllowAuthorization, error) {
 	//defer trace(req.GetIp(), &res)()
 
 	ip := net.ParseIP(req.GetIp())
@@ -27,13 +27,7 @@ func (s *Server) AllowAuthorization(_ context.Context, req *api.ReqAllowAuthoriz
 		return &api.ResAllowAuthorization{Allow: false}, nil
 	}
 
-	if !s.buckets.СheckIP(req.GetIp()) {
-		return &api.ResAllowAuthorization{Allow: false}, nil
-	}
-	if !s.buckets.СheckLogin(req.GetLogin()) {
-		return &api.ResAllowAuthorization{Allow: false}, nil
-	}
-	if !s.buckets.СheckPassword(req.GetPassword()) {
+	if !s.ratelimit.Allow(ctx, req.GetIp(), req.GetPassword(), req.GetLogin()) {
 		return &api.ResAllowAuthorization{Allow: false}, nil
 	}
 
@@ -41,11 +35,14 @@ func (s *Server) AllowAuthorization(_ context.Context, req *api.ReqAllowAuthoriz
 }
 
 func (s *Server) CleanBucket(_ context.Context, req *api.ReqCleanBucket) (*emptypb.Empty, error) {
-	if err := s.buckets.CleanBucketLogin(req.GetLogin()); err != nil {
-		return nil, status.Error(codes.Internal, "failed clean bucket login")
-	}
-	if err := s.buckets.CleanBucketIP(req.GetIp()); err != nil {
+	if err := s.ratelimit.CleanBucketIP(req.GetIp()); err != nil {
 		return nil, status.Error(codes.Internal, "failed clean bucket ip")
+	}
+	if err := s.ratelimit.CleanBucketPassword(req.GetPassword()); err != nil {
+		return nil, status.Error(codes.Internal, "failed clean bucket password")
+	}
+	if err := s.ratelimit.CleanBucketLogin(req.GetLogin()); err != nil {
+		return nil, status.Error(codes.Internal, "failed clean bucket login")
 	}
 
 	return &emptypb.Empty{}, nil

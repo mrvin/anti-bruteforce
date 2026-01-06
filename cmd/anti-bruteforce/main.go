@@ -1,4 +1,4 @@
-//go:generate protoc -I=api/ --go_out=pkg/api --go-grpc_out=require_unimplemented_servers=false:pkg/api api/anti_bruteforce_service.proto
+//go:generate protoc -I=../../api/ --go_out=../../pkg/api --go-grpc_out=require_unimplemented_servers=false:../../pkg/api ../../api/anti_bruteforce_service.proto
 package main
 
 import (
@@ -9,6 +9,7 @@ import (
 	"github.com/mrvin/anti-bruteforce/internal/config"
 	"github.com/mrvin/anti-bruteforce/internal/grpcserver"
 	"github.com/mrvin/anti-bruteforce/internal/logger"
+	"github.com/mrvin/anti-bruteforce/internal/ratelimiting"
 	"github.com/mrvin/anti-bruteforce/internal/ratelimiting/leakybucket"
 	"github.com/mrvin/anti-bruteforce/internal/storage"
 	sqlstorage "github.com/mrvin/anti-bruteforce/internal/storage/sql"
@@ -58,11 +59,14 @@ func main() {
 		slog.Error("Failed to init blacklist: " + err.Error())
 		return
 	}
-	defer whitelist.Close()
+	defer blacklist.Close()
 
-	buckets := leakybucket.New(&conf.Buckets)
+	// init rate limiting
+	var ratelimit ratelimiting.Ratelimiter
+	ratelimit = leakybucket.New(&conf.Buckets)
+	defer ratelimit.Stop()
 
-	server, err := grpcserver.New(&conf.GRPC, buckets, storage.Storage{Whitelist: whitelist, Blacklist: blacklist})
+	server, err := grpcserver.New(&conf.GRPC, ratelimit, storage.Storage{Whitelist: whitelist, Blacklist: blacklist})
 	if err != nil {
 		slog.Error("New gRPC server: " + err.Error())
 		return

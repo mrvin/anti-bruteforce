@@ -101,6 +101,23 @@ CLI может работать через GRPC/HTTP интерфейс.
 
 ### Todo list
 - Уточнить ошибки для некоторых методов.
+- Добавить логирование всех запросов и ошибок.
+- Добавить метрик для мониторинга.
+```go
+type Stats struct {
+    TotalRequests   uint64
+    AllowedRequests uint64
+    BlockedRequests uint64
+    ActiveIP        uint64
+    ActiveLogin     uint64
+}
+
+func (b *Buckets) Stats() Stats {
+    // Подсчитать bucket'ы и запросы
+}
+```
+- Добавить graceful shutdown для cleanup горутины перед Stop().
+- Добавить валидацию параметров для Allow.
 
 #### Зачёт от 10 баллов
 
