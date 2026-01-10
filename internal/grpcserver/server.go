@@ -28,15 +28,16 @@ type Server struct {
 	storage   storage.Storage
 }
 
-func New(conf *Conf, ratelimit ratelimiting.Ratelimiter, storage storage.Storage) (*Server, error) {
+func New(ctx context.Context, conf *Conf, ratelimit ratelimiting.Ratelimiter, storage storage.Storage) (*Server, error) {
 	var server Server
 
 	server.ratelimit = ratelimit
 	server.storage = storage
 
 	var err error
+	lc := net.ListenConfig{} //nolint:exhaustruct
 	server.addr = net.JoinHostPort(conf.Host, conf.Port)
-	server.conn, err = net.Listen("tcp", server.addr)
+	server.conn, err = lc.Listen(ctx, "tcp", server.addr)
 	if err != nil {
 		return nil, fmt.Errorf("establish tcp connection: %w", err)
 	}
@@ -69,7 +70,7 @@ func (s *Server) Run(ctx context.Context) {
 	<-ctx.Done()
 
 	s.serv.GracefulStop()
-	s.conn.Close() //nolint:errcheck
+	s.conn.Close()
 
 	slog.Info("Stop gRPC server")
 }

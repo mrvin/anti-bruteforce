@@ -7,6 +7,8 @@ import (
 	"time"
 )
 
+const logFileMode = 0755
+
 type Conf struct {
 	FilePath string
 	Level    string
@@ -24,7 +26,7 @@ func Init(conf *Conf) (*os.File, error) {
 	if conf.FilePath == "" {
 		logFile = os.Stdout
 	} else {
-		logFile, err = os.OpenFile(conf.FilePath, os.O_RDWR|os.O_APPEND|os.O_CREATE, 0755)
+		logFile, err = os.OpenFile(conf.FilePath, os.O_RDWR|os.O_APPEND|os.O_CREATE, logFileMode)
 		if err != nil {
 			return nil, fmt.Errorf("failed open log file: %w", err)
 		}
@@ -48,4 +50,8 @@ func Init(conf *Conf) (*os.File, error) {
 	slog.SetDefault(logger)
 
 	return logFile, nil
+}
+
+func Warnf(format string, args ...any) {
+	slog.Default().Warn(fmt.Sprintf(format, args...))
 }

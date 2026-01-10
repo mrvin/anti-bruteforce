@@ -1,7 +1,6 @@
 package ratelimiting
 
 import (
-	"context"
 	"errors"
 )
 
@@ -10,7 +9,7 @@ var (
 )
 
 type Ratelimiter interface {
-	Allow(ctx context.Context, ip, password, login string) bool
+	Allow(ip, password, login string) bool
 	CleanBucketIP(ip string) error
 	CleanBucketPassword(password string) error
 	CleanBucketLogin(login string) error

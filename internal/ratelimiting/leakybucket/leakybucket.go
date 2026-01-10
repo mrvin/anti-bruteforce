@@ -1,7 +1,6 @@
 package leakybucket
 
 import (
-	"context"
 	"fmt"
 	"log/slog"
 	"sync"
@@ -33,49 +32,35 @@ type Buckets struct {
 	limitLogin    uint64
 	limitPassword uint64
 	limitIP       uint64
-	done          chan struct{}
-	doneOnce      sync.Once
+
+	done     chan struct{}
+	doneOnce sync.Once
 }
 
 func New(conf *Conf) *Buckets {
 	buckets := &Buckets{
+		mBucketsLogin:    sync.Map{},
+		mBucketsPassword: sync.Map{},
+		mBucketsIP:       sync.Map{},
+
 		limitLogin:    conf.LimitLogin,
 		limitPassword: conf.LimitPassword,
 		limitIP:       conf.LimitIP,
 		done:          make(chan struct{}),
+		doneOnce:      sync.Once{},
 	}
 
-	// Если MaxLifetimeIdle == 0 — пропускаем очистку (без удаления)
-	if conf.MaxLifetimeIdle != 0 {
-		buckets.startCleanup(conf.MaxLifetimeIdle)
-	}
+	// Если MaxLifetimeIdle == 0 — то bucket'ы не удаляються
+	buckets.startCleanup(conf.MaxLifetimeIdle)
 
 	return buckets
-}
-
-func (b *Buckets) startCleanup(maxLifetimeIdle uint64) {
-	ticker := time.NewTicker(timeInterval)
-	go func() {
-		defer ticker.Stop()
-		for {
-			select {
-			case <-ticker.C:
-				slog.Debug("Start cleaning buckets")
-				cleanAndDeleteBucket(&b.mBucketsIP, maxLifetimeIdle)
-				cleanAndDeleteBucket(&b.mBucketsPassword, maxLifetimeIdle)
-				cleanAndDeleteBucket(&b.mBucketsLogin, maxLifetimeIdle)
-			case <-b.done:
-				return
-			}
-		}
-	}()
 }
 
 func cleanAndDeleteBucket(m *sync.Map, maxLifetimeIdle uint64) {
 	toDelete := make([]string, 0)
 
 	m.Range(func(key, value interface{}) bool {
-		bucket := value.(*Bucket)
+		bucket := value.(*Bucket) //nolint:forcetypeassert
 
 		// Если rate == 0, увеличиваем lifetimeIdle на 1
 		// Иначе сбрасываем lifetimeIdle в 0 и rate в 0
@@ -84,7 +69,7 @@ func cleanAndDeleteBucket(m *sync.Map, maxLifetimeIdle uint64) {
 			if rate == 0 {
 				currentLifetimeIdle := bucket.lifetimeIdle.Load()
 				if currentLifetimeIdle >= maxLifetimeIdle-1 {
-					toDelete = append(toDelete, key.(string))
+					toDelete = append(toDelete, key.(string)) //nolint:forcetypeassert
 					break
 				}
 				if bucket.lifetimeIdle.CompareAndSwap(currentLifetimeIdle, currentLifetimeIdle+1) {
@@ -106,33 +91,28 @@ func cleanAndDeleteBucket(m *sync.Map, maxLifetimeIdle uint64) {
 	}
 }
 
-func (b *Buckets) Allow(ctx context.Context, ip, password, login string) bool {
-	if !allow(ctx, ip, &b.mBucketsIP, b.limitIP) {
+func (b *Buckets) Allow(ip, password, login string) bool {
+	if !allow(ip, &b.mBucketsIP, b.limitIP) {
 		return false
 	}
-	if !allow(ctx, password, &b.mBucketsPassword, b.limitPassword) {
+	if !allow(password, &b.mBucketsPassword, b.limitPassword) {
 		return false
 	}
-	if !allow(ctx, login, &b.mBucketsLogin, b.limitLogin) {
+	if !allow(login, &b.mBucketsLogin, b.limitLogin) {
 		return false
 	}
 
 	return true
 }
 
-func allow(ctx context.Context, keyBucket string, m *sync.Map, limit uint64) bool {
-	val, _ := m.LoadOrStore(keyBucket, &Bucket{})
-	bucket := val.(*Bucket)
+func allow(keyBucket string, m *sync.Map, limit uint64) bool {
+	val, _ := m.LoadOrStore(keyBucket, &Bucket{}) //nolint:exhaustruct
+	bucket := val.(*Bucket)                       //nolint:forcetypeassert
 
 	// Попытки увеличить rate на 1, если не превышен лимит
 	// Если превышен, вернуть false
 	// Иначе вернуть true
 	for {
-		select {
-		case <-ctx.Done():
-			return false
-		default:
-		}
 		currentRate := bucket.rate.Load()
 		if currentRate >= limit {
 			return false
@@ -148,7 +128,7 @@ func cleanBucket(keyBucket string, m *sync.Map) error {
 	if !ok {
 		return fmt.Errorf("%w: %s", ratelimiting.ErrBucketNotFound, keyBucket)
 	}
-	bucket := val.(*Bucket)
+	bucket := val.(*Bucket) //nolint:forcetypeassert
 	bucket.rate.Store(0)
 	bucket.lifetimeIdle.Store(0)
 
@@ -171,4 +151,22 @@ func (b *Buckets) Stop() {
 	b.doneOnce.Do(func() {
 		close(b.done)
 	})
+}
+
+func (b *Buckets) startCleanup(maxLifetimeIdle uint64) {
+	ticker := time.NewTicker(timeInterval)
+	go func() {
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				slog.Debug("Start cleaning buckets")
+				cleanAndDeleteBucket(&b.mBucketsIP, maxLifetimeIdle)
+				cleanAndDeleteBucket(&b.mBucketsPassword, maxLifetimeIdle)
+				cleanAndDeleteBucket(&b.mBucketsLogin, maxLifetimeIdle)
+			case <-b.done:
+				return
+			}
+		}
+	}()
 }

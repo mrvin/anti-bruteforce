@@ -19,6 +19,8 @@ type Config struct {
 }
 
 // LoadFromEnv will load configuration solely from the environment.
+//
+//nolint:gocognit,cyclop
 func (c *Config) LoadFromEnv() {
 	if strLimitLogin := os.Getenv("REQ_PER_MINUTE_LOGIN"); strLimitLogin != "" {
 		if limitLogin, err := strconv.ParseUint(strLimitLogin, 10, 64); err != nil {
@@ -26,7 +28,6 @@ func (c *Config) LoadFromEnv() {
 		} else {
 			c.Buckets.LimitLogin = limitLogin
 		}
-
 	} else {
 		slog.Warn("Empty limit login")
 	}
@@ -36,7 +37,6 @@ func (c *Config) LoadFromEnv() {
 		} else {
 			c.Buckets.LimitPassword = limitPassword
 		}
-
 	} else {
 		slog.Warn("Empty limit password")
 	}
@@ -46,7 +46,6 @@ func (c *Config) LoadFromEnv() {
 		} else {
 			c.Buckets.LimitIP = limitIP
 		}
-
 	} else {
 		slog.Warn("Empty limit ip")
 	}

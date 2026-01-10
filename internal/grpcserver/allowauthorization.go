@@ -2,9 +2,8 @@ package grpcserver
 
 import (
 	"context"
-	"log/slog"
+	"fmt"
 	"net"
-	"time"
 
 	"github.com/mrvin/anti-bruteforce/pkg/api"
 	"google.golang.org/grpc/codes"
@@ -12,12 +11,10 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-func (s *Server) AllowAuthorization(ctx context.Context, req *api.ReqAllowAuthorization) (*api.ResAllowAuthorization, error) {
-	//defer trace(req.GetIp(), &res)()
-
+func (s *Server) AllowAuthorization(_ context.Context, req *api.ReqAllowAuthorization) (*api.ResAllowAuthorization, error) {
 	ip := net.ParseIP(req.GetIp())
 	if ip == nil {
-		return nil, status.Error(codes.InvalidArgument, "invalid ip")
+		return nil, status.Error(codes.InvalidArgument, "invalid ip") //nolint:wrapcheck
 	}
 
 	if s.storage.Whitelist.Contains(ip) {
@@ -27,7 +24,7 @@ func (s *Server) AllowAuthorization(ctx context.Context, req *api.ReqAllowAuthor
 		return &api.ResAllowAuthorization{Allow: false}, nil
 	}
 
-	if !s.ratelimit.Allow(ctx, req.GetIp(), req.GetPassword(), req.GetLogin()) {
+	if !s.ratelimit.Allow(req.GetIp(), req.GetPassword(), req.GetLogin()) {
 		return &api.ResAllowAuthorization{Allow: false}, nil
 	}
 
@@ -36,25 +33,14 @@ func (s *Server) AllowAuthorization(ctx context.Context, req *api.ReqAllowAuthor
 
 func (s *Server) CleanBucket(_ context.Context, req *api.ReqCleanBucket) (*emptypb.Empty, error) {
 	if err := s.ratelimit.CleanBucketIP(req.GetIp()); err != nil {
-		return nil, status.Error(codes.Internal, "failed clean bucket ip")
+		return nil, fmt.Errorf("%w: %w", status.Error(codes.Internal, "failed clean bucket ip"), err)
 	}
 	if err := s.ratelimit.CleanBucketPassword(req.GetPassword()); err != nil {
-		return nil, status.Error(codes.Internal, "failed clean bucket password")
+		return nil, fmt.Errorf("%w: %w", status.Error(codes.Internal, "failed clean bucket password"), err)
 	}
 	if err := s.ratelimit.CleanBucketLogin(req.GetLogin()); err != nil {
-		return nil, status.Error(codes.Internal, "failed clean bucket login")
+		return nil, fmt.Errorf("%w: %w", status.Error(codes.Internal, "failed clean bucket login"), err)
 	}
 
 	return &emptypb.Empty{}, nil
-}
-
-func trace(ip string, res *api.ResAllowAuthorization) func() {
-	start := time.Now()
-	return func() {
-		slog.Info("Request",
-			slog.String("ip", ip),
-			slog.Bool("result", res.GetAllow()),
-			slog.Duration("duration", time.Since(start)),
-		)
-	}
 }

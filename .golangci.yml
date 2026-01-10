@@ -1,0 +1,49 @@
+version: "2"
+run:
+  tests: false
+linters:
+  default: all
+  disable:
+    - depguard
+    - err113
+    - gochecknoglobals
+    - gochecknoinits
+    - godox
+    - gomodguard
+    - lll
+    - nakedret
+    - nlreturn
+    - varnamelen
+    - wsl
+    - wsl_v5
+    - noinlineerr
+  settings:
+    cyclop:
+      max-complexity: 16
+    funlen:
+      lines: 150
+      statements: 80
+    nestif:
+      min-complexity: 7
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+formatters:
+  enable:
+    - gci
+    - gofmt
+    - goimports
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$

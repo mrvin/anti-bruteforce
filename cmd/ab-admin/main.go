@@ -18,12 +18,13 @@ import (
 
 const contextTimeout = time.Second
 
-func main() { //nolint:funlen,gocognit,cyclop
+//nolint:gocognit,cyclop,forbidigo
+func main() {
 	conn, err := grpc.NewClient("localhost:50051", grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		log.Fatalf("anti-bruteforce client: %v", err)
 	}
-	defer conn.Close() //nolint:errcheck
+	defer conn.Close()
 	client := api.NewAntiBruteForceServiceClient(conn)
 exit:
 	for {

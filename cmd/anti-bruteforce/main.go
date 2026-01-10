@@ -62,11 +62,10 @@ func main() {
 	defer blacklist.Close()
 
 	// init rate limiting
-	var ratelimit ratelimiting.Ratelimiter
-	ratelimit = leakybucket.New(&conf.Buckets)
+	var ratelimit ratelimiting.Ratelimiter = leakybucket.New(&conf.Buckets)
 	defer ratelimit.Stop()
 
-	server, err := grpcserver.New(&conf.GRPC, ratelimit, storage.Storage{Whitelist: whitelist, Blacklist: blacklist})
+	server, err := grpcserver.New(ctx, &conf.GRPC, ratelimit, storage.Storage{Whitelist: whitelist, Blacklist: blacklist})
 	if err != nil {
 		slog.Error("New gRPC server: " + err.Error())
 		return

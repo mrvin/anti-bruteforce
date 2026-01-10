@@ -11,8 +11,9 @@ import (
 )
 
 type Networks struct {
-	Items []*net.IPNet
 	sync.RWMutex
+
+	Items []*net.IPNet
 }
 
 type List struct {
@@ -95,7 +96,7 @@ func strNetToNet(strNetworks []string) ([]*net.IPNet, error) {
 	for _, strNetwork := range strNetworks {
 		_, network, err := net.ParseCIDR(strNetwork)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("invalid network: %w", err)
 		}
 		networks = append(networks, network)
 	}
@@ -141,7 +142,7 @@ func (l *List) Items(ctx context.Context) ([]string, error) {
 		}
 		return nil, fmt.Errorf("can't get all networks: %w", err)
 	}
-	defer rows.Close() //nolint:errcheck
+	defer rows.Close()
 	var network string
 	for rows.Next() {
 		err = rows.Scan(&network)
@@ -169,7 +170,6 @@ func (l *List) Contains(ip net.IP) bool {
 	return false
 }
 
-//nolint:errcheck
 func (l *List) Close() {
 	l.insertNetwork.Close()
 	l.deleteNetwork.Close()
