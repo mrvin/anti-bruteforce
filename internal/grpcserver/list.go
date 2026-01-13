@@ -2,7 +2,6 @@ package grpcserver
 
 import (
 	"context"
-	"fmt"
 	"net"
 
 	"github.com/mrvin/anti-bruteforce/internal/storage"
@@ -15,10 +14,10 @@ import (
 func addNetwork(ctx context.Context, list storage.List, strNetwork string) (*emptypb.Empty, error) {
 	_, network, err := net.ParseCIDR(strNetwork)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %w", status.Error(codes.InvalidArgument, "invalid network"), err)
+		return nil, status.Errorf(codes.InvalidArgument, "invalid network: %v", err)
 	}
 	if err := list.AddNetwork(ctx, network); err != nil {
-		return nil, fmt.Errorf("%w: %w", status.Error(codes.Internal, "failed add network"), err)
+		return nil, status.Errorf(codes.Internal, "failed add network: %v", err)
 	}
 
 	return &emptypb.Empty{}, nil
@@ -27,11 +26,11 @@ func addNetwork(ctx context.Context, list storage.List, strNetwork string) (*emp
 func deleteNetwork(ctx context.Context, list storage.List, strNetwork string) (*emptypb.Empty, error) {
 	_, network, err := net.ParseCIDR(strNetwork)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %w", status.Error(codes.InvalidArgument, "invalid network"), err)
+		return nil, status.Errorf(codes.InvalidArgument, "invalid network: %v", err)
 	}
 
 	if err := list.DeleteNetwork(ctx, network); err != nil {
-		return nil, fmt.Errorf("%w: %w", status.Error(codes.Internal, "failed delete network"), err)
+		return nil, status.Errorf(codes.Internal, "failed delete network: %v", err)
 	}
 
 	return &emptypb.Empty{}, nil
@@ -40,7 +39,7 @@ func deleteNetwork(ctx context.Context, list storage.List, strNetwork string) (*
 func list(ctx context.Context, list storage.List) (*api.ResListNetworks, error) {
 	strNetworks, err := list.Items(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %w", status.Error(codes.Internal, "failed get list"), err)
+		return nil, status.Errorf(codes.Internal, "failed get list: %v", err)
 	}
 
 	return &api.ResListNetworks{Networks: strNetworks}, nil
