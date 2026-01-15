@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -18,7 +19,7 @@ import (
 
 const contextTimeout = time.Second
 
-//nolint:gocognit,cyclop,forbidigo
+//nolint:gocognit,cyclop,forbidigo,funlen,mnd
 func main() {
 	conn, err := grpc.NewClient("localhost:50051", grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
@@ -26,6 +27,7 @@ func main() {
 	}
 	defer conn.Close()
 	client := api.NewAntiBruteForceServiceClient(conn)
+	reader := bufio.NewReader(os.Stdin)
 exit:
 	for {
 		fmt.Printf("0 - Exit\n" +
@@ -35,24 +37,35 @@ exit:
 			"4 - Show whitelist\n" +
 			"5 - Add an IPv4 network address to the blacklist\n" +
 			"6 - Remove an IPv4 network address from the blacklist\n" +
-			"7 - Show blacklist\n")
-		reader := bufio.NewReader(os.Stdin)
-		input, _ := reader.ReadString('\n')
-		switch []byte(input)[0] {
-		case '0':
+			"7 - Show blacklist\n" +
+			"8 - Clean bucket ip\n" +
+			"9 - Clean bucket password\n" +
+			"10 - Clean bucket login\n")
+
+		// Исправленный ввод числа
+		strNumber, _ := reader.ReadString('\n')
+		strNumber = strings.TrimSpace(strNumber)
+		num, err := strconv.Atoi(strNumber)
+		if err != nil {
+			log.Printf("Error read number: %v", err)
+			continue
+		}
+
+		switch num {
+		case 0:
 			fmt.Printf("Exit\n")
 			break exit
-		case '1':
+		case 1:
 			var req api.ReqAllowAuthorization
 			fmt.Printf("Login:")
 			req.Login, _ = reader.ReadString('\n')
-			req.Login = strings.TrimSuffix(req.GetLogin(), "\n")
+			req.Login = strings.TrimSpace(req.GetLogin())
 			fmt.Printf("Password:")
 			req.Password, _ = reader.ReadString('\n')
-			req.Password = strings.TrimSuffix(req.GetPassword(), "\n")
+			req.Password = strings.TrimSpace(req.GetPassword())
 			fmt.Printf("IP:")
 			req.Ip, _ = reader.ReadString('\n')
-			req.Ip = strings.TrimSuffix(req.GetIp(), "\n")
+			req.Ip = strings.TrimSpace(req.GetIp())
 
 			ctx, cancel := context.WithTimeout(context.Background(), contextTimeout)
 			defer cancel()
@@ -62,11 +75,11 @@ exit:
 				continue
 			}
 			fmt.Printf("result: %t\n", res.GetAllow())
-		case '2':
+		case 2:
 			var req api.ReqNetwork
 			fmt.Printf("Network:")
 			req.Network, _ = reader.ReadString('\n')
-			req.Network = strings.TrimSuffix(req.GetNetwork(), "\n")
+			req.Network = strings.TrimSpace(req.GetNetwork())
 
 			ctx, cancel := context.WithTimeout(context.Background(), contextTimeout)
 			defer cancel()
@@ -77,11 +90,11 @@ exit:
 				continue
 			}
 			fmt.Println("Success")
-		case '3':
+		case 3:
 			var req api.ReqNetwork
 			fmt.Printf("Network:")
 			req.Network, _ = reader.ReadString('\n')
-			req.Network = strings.TrimSuffix(req.GetNetwork(), "\n")
+			req.Network = strings.TrimSpace(req.GetNetwork())
 
 			ctx, cancel := context.WithTimeout(context.Background(), contextTimeout)
 			defer cancel()
@@ -92,7 +105,7 @@ exit:
 				continue
 			}
 			fmt.Println("Success")
-		case '4':
+		case 4:
 			ctx, cancel := context.WithTimeout(context.Background(), contextTimeout)
 			defer cancel()
 			res, err := client.Whitelist(ctx, &emptypb.Empty{})
@@ -104,11 +117,11 @@ exit:
 			for _, network := range res.GetNetworks() {
 				fmt.Println(network)
 			}
-		case '5':
+		case 5:
 			var req api.ReqNetwork
 			fmt.Printf("Network:")
 			req.Network, _ = reader.ReadString('\n')
-			req.Network = strings.TrimSuffix(req.GetNetwork(), "\n")
+			req.Network = strings.TrimSpace(req.GetNetwork())
 
 			ctx, cancel := context.WithTimeout(context.Background(), contextTimeout)
 			defer cancel()
@@ -119,11 +132,11 @@ exit:
 				continue
 			}
 			fmt.Println("Success")
-		case '6':
+		case 6:
 			var req api.ReqNetwork
 			fmt.Printf("Network:")
 			req.Network, _ = reader.ReadString('\n')
-			req.Network = strings.TrimSuffix(req.GetNetwork(), "\n")
+			req.Network = strings.TrimSpace(req.GetNetwork())
 
 			ctx, cancel := context.WithTimeout(context.Background(), contextTimeout)
 			defer cancel()
@@ -134,7 +147,7 @@ exit:
 				continue
 			}
 			fmt.Println("Success")
-		case '7':
+		case 7:
 			ctx, cancel := context.WithTimeout(context.Background(), contextTimeout)
 			defer cancel()
 			res, err := client.Blacklist(ctx, &emptypb.Empty{})
@@ -146,7 +159,50 @@ exit:
 			for _, network := range res.GetNetworks() {
 				fmt.Println(network)
 			}
+		case 8:
+			var req api.ReqCleanBucket
+			fmt.Printf("Key:")
+			req.KeyBucket, _ = reader.ReadString('\n')
+			req.KeyBucket = strings.TrimSpace(req.GetKeyBucket())
+
+			ctx, cancel := context.WithTimeout(context.Background(), contextTimeout)
+			defer cancel()
+			_, err := client.CleanBucketIP(ctx, &req)
+			if err != nil {
+				log.Printf("Clean bucket ip: %v", err)
+				continue
+			}
+			fmt.Println("Success")
+		case 9:
+			var req api.ReqCleanBucket
+			fmt.Printf("Key:")
+			req.KeyBucket, _ = reader.ReadString('\n')
+			req.KeyBucket = strings.TrimSpace(req.GetKeyBucket())
+
+			ctx, cancel := context.WithTimeout(context.Background(), contextTimeout)
+			defer cancel()
+			_, err := client.CleanBucketPassword(ctx, &req)
+			if err != nil {
+				log.Printf("Clean bucket password: %v", err)
+				continue
+			}
+			fmt.Println("Success")
+		case 10:
+			var req api.ReqCleanBucket
+			fmt.Printf("Key:")
+			req.KeyBucket, _ = reader.ReadString('\n')
+			req.KeyBucket = strings.TrimSpace(req.GetKeyBucket())
+
+			ctx, cancel := context.WithTimeout(context.Background(), contextTimeout)
+			defer cancel()
+			_, err := client.CleanBucketLogin(ctx, &req)
+			if err != nil {
+				log.Printf("Clean bucket login: %v", err)
+				continue
+			}
+			fmt.Println("Success")
 		default:
+			fmt.Println("Invalid option")
 		}
 	}
 }

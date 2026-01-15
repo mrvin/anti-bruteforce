@@ -216,9 +216,7 @@ func (x *ResListNetworks) GetNetworks() []string {
 
 type ReqCleanBucket struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Login         string                 `protobuf:"bytes,1,opt,name=login,proto3" json:"login,omitempty"`
-	Password      string                 `protobuf:"bytes,2,opt,name=password,proto3" json:"password,omitempty"`
-	Ip            string                 `protobuf:"bytes,3,opt,name=ip,proto3" json:"ip,omitempty"`
+	KeyBucket     string                 `protobuf:"bytes,1,opt,name=keyBucket,proto3" json:"keyBucket,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -253,23 +251,9 @@ func (*ReqCleanBucket) Descriptor() ([]byte, []int) {
 	return file_anti_bruteforce_service_proto_rawDescGZIP(), []int{4}
 }
 
-func (x *ReqCleanBucket) GetLogin() string {
+func (x *ReqCleanBucket) GetKeyBucket() string {
 	if x != nil {
-		return x.Login
-	}
-	return ""
-}
-
-func (x *ReqCleanBucket) GetPassword() string {
-	if x != nil {
-		return x.Password
-	}
-	return ""
-}
-
-func (x *ReqCleanBucket) GetIp() string {
-	if x != nil {
-		return x.Ip
+		return x.KeyBucket
 	}
 	return ""
 }
@@ -289,11 +273,9 @@ const file_anti_bruteforce_service_proto_rawDesc = "" +
 	"ReqNetwork\x12\x18\n" +
 	"\anetwork\x18\x01 \x01(\tR\anetwork\"-\n" +
 	"\x0fResListNetworks\x12\x1a\n" +
-	"\bnetworks\x18\x01 \x03(\tR\bnetworks\"R\n" +
-	"\x0eReqCleanBucket\x12\x14\n" +
-	"\x05login\x18\x01 \x01(\tR\x05login\x12\x1a\n" +
-	"\bpassword\x18\x02 \x01(\tR\bpassword\x12\x0e\n" +
-	"\x02ip\x18\x03 \x01(\tR\x02ip2\x9c\x05\n" +
+	"\bnetworks\x18\x01 \x03(\tR\bnetworks\".\n" +
+	"\x0eReqCleanBucket\x12\x1c\n" +
+	"\tkeyBucket\x18\x01 \x01(\tR\tkeyBucket2\xbd\x06\n" +
 	"\x15AntiBruteForceService\x12d\n" +
 	"\x12AllowAuthorization\x12%.antibruteforce.ReqAllowAuthorization\x1a%.antibruteforce.ResAllowAuthorization\"\x00\x12M\n" +
 	"\x15AddNetworkToWhitelist\x12\x1a.antibruteforce.ReqNetwork\x1a\x16.google.protobuf.Empty\"\x00\x12R\n" +
@@ -301,8 +283,10 @@ const file_anti_bruteforce_service_proto_rawDesc = "" +
 	"\tWhitelist\x12\x16.google.protobuf.Empty\x1a\x1f.antibruteforce.ResListNetworks\"\x00\x12M\n" +
 	"\x15AddNetworkToBlacklist\x12\x1a.antibruteforce.ReqNetwork\x1a\x16.google.protobuf.Empty\"\x00\x12R\n" +
 	"\x1aDeleteNetworkFromBlacklist\x12\x1a.antibruteforce.ReqNetwork\x1a\x16.google.protobuf.Empty\"\x00\x12F\n" +
-	"\tBlacklist\x12\x16.google.protobuf.Empty\x1a\x1f.antibruteforce.ResListNetworks\"\x00\x12G\n" +
-	"\vCleanBucket\x12\x1e.antibruteforce.ReqCleanBucket\x1a\x16.google.protobuf.Empty\"\x00B\aZ\x05.;apib\x06proto3"
+	"\tBlacklist\x12\x16.google.protobuf.Empty\x1a\x1f.antibruteforce.ResListNetworks\"\x00\x12I\n" +
+	"\rCleanBucketIP\x12\x1e.antibruteforce.ReqCleanBucket\x1a\x16.google.protobuf.Empty\"\x00\x12O\n" +
+	"\x13CleanBucketPassword\x12\x1e.antibruteforce.ReqCleanBucket\x1a\x16.google.protobuf.Empty\"\x00\x12L\n" +
+	"\x10CleanBucketLogin\x12\x1e.antibruteforce.ReqCleanBucket\x1a\x16.google.protobuf.Empty\"\x00B\aZ\x05.;apib\x06proto3"
 
 var (
 	file_anti_bruteforce_service_proto_rawDescOnce sync.Once
@@ -326,27 +310,31 @@ var file_anti_bruteforce_service_proto_goTypes = []any{
 	(*emptypb.Empty)(nil),         // 5: google.protobuf.Empty
 }
 var file_anti_bruteforce_service_proto_depIdxs = []int32{
-	0, // 0: antibruteforce.AntiBruteForceService.AllowAuthorization:input_type -> antibruteforce.ReqAllowAuthorization
-	2, // 1: antibruteforce.AntiBruteForceService.AddNetworkToWhitelist:input_type -> antibruteforce.ReqNetwork
-	2, // 2: antibruteforce.AntiBruteForceService.DeleteNetworkFromWhitelist:input_type -> antibruteforce.ReqNetwork
-	5, // 3: antibruteforce.AntiBruteForceService.Whitelist:input_type -> google.protobuf.Empty
-	2, // 4: antibruteforce.AntiBruteForceService.AddNetworkToBlacklist:input_type -> antibruteforce.ReqNetwork
-	2, // 5: antibruteforce.AntiBruteForceService.DeleteNetworkFromBlacklist:input_type -> antibruteforce.ReqNetwork
-	5, // 6: antibruteforce.AntiBruteForceService.Blacklist:input_type -> google.protobuf.Empty
-	4, // 7: antibruteforce.AntiBruteForceService.CleanBucket:input_type -> antibruteforce.ReqCleanBucket
-	1, // 8: antibruteforce.AntiBruteForceService.AllowAuthorization:output_type -> antibruteforce.ResAllowAuthorization
-	5, // 9: antibruteforce.AntiBruteForceService.AddNetworkToWhitelist:output_type -> google.protobuf.Empty
-	5, // 10: antibruteforce.AntiBruteForceService.DeleteNetworkFromWhitelist:output_type -> google.protobuf.Empty
-	3, // 11: antibruteforce.AntiBruteForceService.Whitelist:output_type -> antibruteforce.ResListNetworks
-	5, // 12: antibruteforce.AntiBruteForceService.AddNetworkToBlacklist:output_type -> google.protobuf.Empty
-	5, // 13: antibruteforce.AntiBruteForceService.DeleteNetworkFromBlacklist:output_type -> google.protobuf.Empty
-	3, // 14: antibruteforce.AntiBruteForceService.Blacklist:output_type -> antibruteforce.ResListNetworks
-	5, // 15: antibruteforce.AntiBruteForceService.CleanBucket:output_type -> google.protobuf.Empty
-	8, // [8:16] is the sub-list for method output_type
-	0, // [0:8] is the sub-list for method input_type
-	0, // [0:0] is the sub-list for extension type_name
-	0, // [0:0] is the sub-list for extension extendee
-	0, // [0:0] is the sub-list for field type_name
+	0,  // 0: antibruteforce.AntiBruteForceService.AllowAuthorization:input_type -> antibruteforce.ReqAllowAuthorization
+	2,  // 1: antibruteforce.AntiBruteForceService.AddNetworkToWhitelist:input_type -> antibruteforce.ReqNetwork
+	2,  // 2: antibruteforce.AntiBruteForceService.DeleteNetworkFromWhitelist:input_type -> antibruteforce.ReqNetwork
+	5,  // 3: antibruteforce.AntiBruteForceService.Whitelist:input_type -> google.protobuf.Empty
+	2,  // 4: antibruteforce.AntiBruteForceService.AddNetworkToBlacklist:input_type -> antibruteforce.ReqNetwork
+	2,  // 5: antibruteforce.AntiBruteForceService.DeleteNetworkFromBlacklist:input_type -> antibruteforce.ReqNetwork
+	5,  // 6: antibruteforce.AntiBruteForceService.Blacklist:input_type -> google.protobuf.Empty
+	4,  // 7: antibruteforce.AntiBruteForceService.CleanBucketIP:input_type -> antibruteforce.ReqCleanBucket
+	4,  // 8: antibruteforce.AntiBruteForceService.CleanBucketPassword:input_type -> antibruteforce.ReqCleanBucket
+	4,  // 9: antibruteforce.AntiBruteForceService.CleanBucketLogin:input_type -> antibruteforce.ReqCleanBucket
+	1,  // 10: antibruteforce.AntiBruteForceService.AllowAuthorization:output_type -> antibruteforce.ResAllowAuthorization
+	5,  // 11: antibruteforce.AntiBruteForceService.AddNetworkToWhitelist:output_type -> google.protobuf.Empty
+	5,  // 12: antibruteforce.AntiBruteForceService.DeleteNetworkFromWhitelist:output_type -> google.protobuf.Empty
+	3,  // 13: antibruteforce.AntiBruteForceService.Whitelist:output_type -> antibruteforce.ResListNetworks
+	5,  // 14: antibruteforce.AntiBruteForceService.AddNetworkToBlacklist:output_type -> google.protobuf.Empty
+	5,  // 15: antibruteforce.AntiBruteForceService.DeleteNetworkFromBlacklist:output_type -> google.protobuf.Empty
+	3,  // 16: antibruteforce.AntiBruteForceService.Blacklist:output_type -> antibruteforce.ResListNetworks
+	5,  // 17: antibruteforce.AntiBruteForceService.CleanBucketIP:output_type -> google.protobuf.Empty
+	5,  // 18: antibruteforce.AntiBruteForceService.CleanBucketPassword:output_type -> google.protobuf.Empty
+	5,  // 19: antibruteforce.AntiBruteForceService.CleanBucketLogin:output_type -> google.protobuf.Empty
+	10, // [10:20] is the sub-list for method output_type
+	0,  // [0:10] is the sub-list for method input_type
+	0,  // [0:0] is the sub-list for extension type_name
+	0,  // [0:0] is the sub-list for extension extendee
+	0,  // [0:0] is the sub-list for field type_name
 }
 
 func init() { file_anti_bruteforce_service_proto_init() }

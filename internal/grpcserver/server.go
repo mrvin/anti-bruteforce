@@ -105,6 +105,10 @@ func loggingInterceptor(ctx context.Context, req any, info *grpc.UnaryServerInfo
 		logReq = logReq.With(
 			slog.String("network", val.GetNetwork()),
 		)
+	case *api.ReqCleanBucket:
+		logReq = logReq.With(
+			slog.String("key", val.GetKeyBucket()),
+		)
 	case *emptypb.Empty:
 	default:
 		logger.Warnf("invalid request type %T", val)
@@ -131,6 +135,7 @@ func loggingInterceptor(ctx context.Context, req any, info *grpc.UnaryServerInfo
 			slog.Bool("allow", val.GetAllow()),
 		)
 	case *api.ResListNetworks:
+	case *emptypb.Empty:
 	default:
 		logger.Warnf("invalid response type %T", val)
 	}

@@ -17,7 +17,9 @@ service AntiBruteForceService {
 	rpc DeleteNetworkFromBlacklist (ReqNetwork) returns (google.protobuf.Empty) {}
 	rpc Blacklist (google.protobuf.Empty) returns (ResListNetworks) {}
 
-	rpc CleanBucket(ReqCleanBucket) returns (google.protobuf.Empty) {}
+	rpc CleanBucketIP(ReqCleanBucket) returns (google.protobuf.Empty) {}
+	rpc CleanBucketPassword(ReqCleanBucket) returns (google.protobuf.Empty) {}
+	rpc CleanBucketLogin(ReqCleanBucket) returns (google.protobuf.Empty) {}
 }
 
 message ReqAllowAuthorization {
@@ -39,7 +41,5 @@ message ResListNetworks {
 }
 
 message ReqCleanBucket {
-	string login = 1;
-	string password = 2;
-	string ip = 3;
+	string keyBucket = 1;
 }

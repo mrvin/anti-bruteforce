@@ -27,7 +27,9 @@ const (
 	AntiBruteForceService_AddNetworkToBlacklist_FullMethodName      = "/antibruteforce.AntiBruteForceService/AddNetworkToBlacklist"
 	AntiBruteForceService_DeleteNetworkFromBlacklist_FullMethodName = "/antibruteforce.AntiBruteForceService/DeleteNetworkFromBlacklist"
 	AntiBruteForceService_Blacklist_FullMethodName                  = "/antibruteforce.AntiBruteForceService/Blacklist"
-	AntiBruteForceService_CleanBucket_FullMethodName                = "/antibruteforce.AntiBruteForceService/CleanBucket"
+	AntiBruteForceService_CleanBucketIP_FullMethodName              = "/antibruteforce.AntiBruteForceService/CleanBucketIP"
+	AntiBruteForceService_CleanBucketPassword_FullMethodName        = "/antibruteforce.AntiBruteForceService/CleanBucketPassword"
+	AntiBruteForceService_CleanBucketLogin_FullMethodName           = "/antibruteforce.AntiBruteForceService/CleanBucketLogin"
 )
 
 // AntiBruteForceServiceClient is the client API for AntiBruteForceService service.
@@ -41,7 +43,9 @@ type AntiBruteForceServiceClient interface {
 	AddNetworkToBlacklist(ctx context.Context, in *ReqNetwork, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	DeleteNetworkFromBlacklist(ctx context.Context, in *ReqNetwork, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	Blacklist(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ResListNetworks, error)
-	CleanBucket(ctx context.Context, in *ReqCleanBucket, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	CleanBucketIP(ctx context.Context, in *ReqCleanBucket, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	CleanBucketPassword(ctx context.Context, in *ReqCleanBucket, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	CleanBucketLogin(ctx context.Context, in *ReqCleanBucket, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
 
 type antiBruteForceServiceClient struct {
@@ -122,10 +126,30 @@ func (c *antiBruteForceServiceClient) Blacklist(ctx context.Context, in *emptypb
 	return out, nil
 }
 
-func (c *antiBruteForceServiceClient) CleanBucket(ctx context.Context, in *ReqCleanBucket, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *antiBruteForceServiceClient) CleanBucketIP(ctx context.Context, in *ReqCleanBucket, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(emptypb.Empty)
-	err := c.cc.Invoke(ctx, AntiBruteForceService_CleanBucket_FullMethodName, in, out, cOpts...)
+	err := c.cc.Invoke(ctx, AntiBruteForceService_CleanBucketIP_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *antiBruteForceServiceClient) CleanBucketPassword(ctx context.Context, in *ReqCleanBucket, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, AntiBruteForceService_CleanBucketPassword_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *antiBruteForceServiceClient) CleanBucketLogin(ctx context.Context, in *ReqCleanBucket, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, AntiBruteForceService_CleanBucketLogin_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -143,7 +167,9 @@ type AntiBruteForceServiceServer interface {
 	AddNetworkToBlacklist(context.Context, *ReqNetwork) (*emptypb.Empty, error)
 	DeleteNetworkFromBlacklist(context.Context, *ReqNetwork) (*emptypb.Empty, error)
 	Blacklist(context.Context, *emptypb.Empty) (*ResListNetworks, error)
-	CleanBucket(context.Context, *ReqCleanBucket) (*emptypb.Empty, error)
+	CleanBucketIP(context.Context, *ReqCleanBucket) (*emptypb.Empty, error)
+	CleanBucketPassword(context.Context, *ReqCleanBucket) (*emptypb.Empty, error)
+	CleanBucketLogin(context.Context, *ReqCleanBucket) (*emptypb.Empty, error)
 }
 
 // UnimplementedAntiBruteForceServiceServer should be embedded to have
@@ -174,8 +200,14 @@ func (UnimplementedAntiBruteForceServiceServer) DeleteNetworkFromBlacklist(conte
 func (UnimplementedAntiBruteForceServiceServer) Blacklist(context.Context, *emptypb.Empty) (*ResListNetworks, error) {
 	return nil, status.Error(codes.Unimplemented, "method Blacklist not implemented")
 }
-func (UnimplementedAntiBruteForceServiceServer) CleanBucket(context.Context, *ReqCleanBucket) (*emptypb.Empty, error) {
-	return nil, status.Error(codes.Unimplemented, "method CleanBucket not implemented")
+func (UnimplementedAntiBruteForceServiceServer) CleanBucketIP(context.Context, *ReqCleanBucket) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method CleanBucketIP not implemented")
+}
+func (UnimplementedAntiBruteForceServiceServer) CleanBucketPassword(context.Context, *ReqCleanBucket) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method CleanBucketPassword not implemented")
+}
+func (UnimplementedAntiBruteForceServiceServer) CleanBucketLogin(context.Context, *ReqCleanBucket) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method CleanBucketLogin not implemented")
 }
 func (UnimplementedAntiBruteForceServiceServer) testEmbeddedByValue() {}
 
@@ -323,20 +355,56 @@ func _AntiBruteForceService_Blacklist_Handler(srv interface{}, ctx context.Conte
 	return interceptor(ctx, in, info, handler)
 }
 
-func _AntiBruteForceService_CleanBucket_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _AntiBruteForceService_CleanBucketIP_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ReqCleanBucket)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(AntiBruteForceServiceServer).CleanBucket(ctx, in)
+		return srv.(AntiBruteForceServiceServer).CleanBucketIP(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: AntiBruteForceService_CleanBucket_FullMethodName,
+		FullMethod: AntiBruteForceService_CleanBucketIP_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(AntiBruteForceServiceServer).CleanBucket(ctx, req.(*ReqCleanBucket))
+		return srv.(AntiBruteForceServiceServer).CleanBucketIP(ctx, req.(*ReqCleanBucket))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AntiBruteForceService_CleanBucketPassword_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ReqCleanBucket)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AntiBruteForceServiceServer).CleanBucketPassword(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AntiBruteForceService_CleanBucketPassword_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AntiBruteForceServiceServer).CleanBucketPassword(ctx, req.(*ReqCleanBucket))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AntiBruteForceService_CleanBucketLogin_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ReqCleanBucket)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AntiBruteForceServiceServer).CleanBucketLogin(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AntiBruteForceService_CleanBucketLogin_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AntiBruteForceServiceServer).CleanBucketLogin(ctx, req.(*ReqCleanBucket))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -377,8 +445,16 @@ var AntiBruteForceService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _AntiBruteForceService_Blacklist_Handler,
 		},
 		{
-			MethodName: "CleanBucket",
-			Handler:    _AntiBruteForceService_CleanBucket_Handler,
+			MethodName: "CleanBucketIP",
+			Handler:    _AntiBruteForceService_CleanBucketIP_Handler,
+		},
+		{
+			MethodName: "CleanBucketPassword",
+			Handler:    _AntiBruteForceService_CleanBucketPassword_Handler,
+		},
+		{
+			MethodName: "CleanBucketLogin",
+			Handler:    _AntiBruteForceService_CleanBucketLogin_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

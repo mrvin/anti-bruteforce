@@ -2,9 +2,10 @@ package grpcserver
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"net"
 
+	"github.com/mrvin/anti-bruteforce/internal/ratelimiting"
 	"github.com/mrvin/anti-bruteforce/pkg/api"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -31,16 +32,33 @@ func (s *Server) AllowAuthorization(_ context.Context, req *api.ReqAllowAuthoriz
 	return &api.ResAllowAuthorization{Allow: true}, nil
 }
 
-func (s *Server) CleanBucket(_ context.Context, req *api.ReqCleanBucket) (*emptypb.Empty, error) {
-	if err := s.ratelimit.CleanBucketIP(req.GetIp()); err != nil {
-		return nil, fmt.Errorf("%w: %w", status.Error(codes.Internal, "failed clean bucket ip"), err)
-	}
-	if err := s.ratelimit.CleanBucketPassword(req.GetPassword()); err != nil {
-		return nil, fmt.Errorf("%w: %w", status.Error(codes.Internal, "failed clean bucket password"), err)
-	}
-	if err := s.ratelimit.CleanBucketLogin(req.GetLogin()); err != nil {
-		return nil, fmt.Errorf("%w: %w", status.Error(codes.Internal, "failed clean bucket login"), err)
+func (s *Server) CleanBucketIP(_ context.Context, req *api.ReqCleanBucket) (*emptypb.Empty, error) {
+	if err := s.ratelimit.CleanBucketIP(req.GetKeyBucket()); err != nil {
+		if errors.Is(err, ratelimiting.ErrBucketNotFound) {
+			return nil, status.Errorf(codes.NotFound, "failed clean bucket ip: %v", err)
+		}
+		return nil, status.Errorf(codes.Internal, "failed clean bucket ip: %v", err)
 	}
 
+	return &emptypb.Empty{}, nil
+}
+
+func (s *Server) CleanBucketPassword(_ context.Context, req *api.ReqCleanBucket) (*emptypb.Empty, error) {
+	if err := s.ratelimit.CleanBucketPassword(req.GetKeyBucket()); err != nil {
+		if errors.Is(err, ratelimiting.ErrBucketNotFound) {
+			return nil, status.Errorf(codes.NotFound, "failed clean bucket password: %v", err)
+		}
+		return nil, status.Errorf(codes.Internal, "failed clean bucket password: %v", err)
+	}
+	return &emptypb.Empty{}, nil
+}
+
+func (s *Server) CleanBucketLogin(_ context.Context, req *api.ReqCleanBucket) (*emptypb.Empty, error) {
+	if err := s.ratelimit.CleanBucketLogin(req.GetKeyBucket()); err != nil {
+		if errors.Is(err, ratelimiting.ErrBucketNotFound) {
+			return nil, status.Errorf(codes.NotFound, "failed clean bucket login: %v", err)
+		}
+		return nil, status.Errorf(codes.Internal, "failed clean bucket login: %v", err)
+	}
 	return &emptypb.Empty{}, nil
 }
