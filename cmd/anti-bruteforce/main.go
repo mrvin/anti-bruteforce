@@ -12,7 +12,7 @@ import (
 	"github.com/mrvin/anti-bruteforce/internal/ratelimiting"
 	"github.com/mrvin/anti-bruteforce/internal/ratelimiting/leakybucket"
 	"github.com/mrvin/anti-bruteforce/internal/storage"
-	sqlstorage "github.com/mrvin/anti-bruteforce/internal/storage/sql"
+	"github.com/mrvin/anti-bruteforce/internal/storage/sqlite"
 )
 
 func main() {
@@ -35,7 +35,7 @@ func main() {
 
 	// init storage
 	ctx := context.Background()
-	db, err := sqlstorage.New(ctx, &conf.DB)
+	db, err := sqlite.New(ctx, &conf.DB)
 	if err != nil {
 		slog.Error("Failed to init storage: " + err.Error())
 		return
@@ -48,13 +48,13 @@ func main() {
 			slog.Info("Closing the database connection")
 		}
 	}()
-	whitelist, err := sqlstorage.NewList(ctx, db, "Whitelist")
+	whitelist, err := sqlite.NewList(ctx, db, sqlite.Whitelist)
 	if err != nil {
 		slog.Error("Failed to init whitelist: " + err.Error())
 		return
 	}
 	defer whitelist.Close()
-	blacklist, err := sqlstorage.NewList(ctx, db, "Blacklist")
+	blacklist, err := sqlite.NewList(ctx, db, sqlite.Blacklist)
 	if err != nil {
 		slog.Error("Failed to init blacklist: " + err.Error())
 		return

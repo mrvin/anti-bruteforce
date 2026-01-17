@@ -8,19 +8,17 @@ import (
 	"github.com/mrvin/anti-bruteforce/internal/grpcserver"
 	"github.com/mrvin/anti-bruteforce/internal/logger"
 	"github.com/mrvin/anti-bruteforce/internal/ratelimiting/leakybucket"
-	sqlstorage "github.com/mrvin/anti-bruteforce/internal/storage/sql"
+	"github.com/mrvin/anti-bruteforce/internal/storage/sqlite"
 )
 
 type Config struct {
 	Buckets leakybucket.Conf
-	DB      sqlstorage.Conf
+	DB      sqlite.Conf
 	GRPC    grpcserver.Conf
 	Logger  logger.Conf
 }
 
 // LoadFromEnv will load configuration solely from the environment.
-//
-//nolint:gocognit,cyclop
 func (c *Config) LoadFromEnv() {
 	if strLimitLogin := os.Getenv("REQ_PER_MINUTE_LOGIN"); strLimitLogin != "" {
 		if limitLogin, err := strconv.ParseUint(strLimitLogin, 10, 64); err != nil {
@@ -59,30 +57,10 @@ func (c *Config) LoadFromEnv() {
 		slog.Warn("Empty max lifetime idle")
 	}
 
-	if host := os.Getenv("POSTGRES_HOST"); host != "" {
-		c.DB.Host = host
+	if storagePath := os.Getenv("SQLITE_STORAGE_PATH"); storagePath != "" {
+		c.DB.StoragePath = storagePath
 	} else {
-		slog.Warn("Empty postgres host")
-	}
-	if port := os.Getenv("POSTGRES_PORT"); port != "" {
-		c.DB.Port = port
-	} else {
-		slog.Warn("Empty postgres port")
-	}
-	if user := os.Getenv("POSTGRES_USER"); user != "" {
-		c.DB.User = user
-	} else {
-		slog.Warn("Empty postgres user")
-	}
-	if password := os.Getenv("POSTGRES_PASSWORD"); password != "" {
-		c.DB.Password = password
-	} else {
-		slog.Warn("Empty postgres password")
-	}
-	if name := os.Getenv("POSTGRES_DB"); name != "" {
-		c.DB.Name = name
-	} else {
-		slog.Warn("Empty postgres db name")
+		slog.Warn("Empty sqlite storage path")
 	}
 
 	if host := os.Getenv("GRPC_HOST"); host != "" {

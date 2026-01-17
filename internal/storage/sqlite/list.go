@@ -1,4 +1,4 @@
-package sqlstorage
+package sqlite
 
 import (
 	"context"
@@ -8,6 +8,11 @@ import (
 	"net"
 	"slices"
 	"sync"
+)
+
+const (
+	Whitelist = iota
+	Blacklist
 )
 
 type Networks struct {
@@ -24,50 +29,50 @@ type List struct {
 	Cache Networks
 }
 
-func NewList(ctx context.Context, db *sql.DB, listType string) (*List, error) {
+func NewList(ctx context.Context, db *sql.DB, listType int) (*List, error) {
 	var l List
 	var err error
 	fmtStrErr := `prepare "%s" query: %w`
 
 	switch listType {
-	case "Whitelist":
+	case Whitelist:
 		// Whitelist query prepare
 		sqlInsertNetworkToWhitelist := `
 		INSERT INTO whitelist (
-			ip_range
+			net
 		)
 		VALUES ($1)`
 		l.insertNetwork, err = db.PrepareContext(ctx, sqlInsertNetworkToWhitelist)
 		if err != nil {
 			return nil, fmt.Errorf(fmtStrErr, "insertNetworkToWhitelist", err)
 		}
-		sqlDeleteNetworkFromWhitelist := `DELETE FROM whitelist WHERE ip_range = $1`
+		sqlDeleteNetworkFromWhitelist := `DELETE FROM whitelist WHERE net = $1`
 		l.deleteNetwork, err = db.PrepareContext(ctx, sqlDeleteNetworkFromWhitelist)
 		if err != nil {
 			return nil, fmt.Errorf(fmtStrErr, "deleteNetworkFromWhitelist", err)
 		}
-		sqlWhitelist := `SELECT ip_range FROM whitelist`
+		sqlWhitelist := `SELECT net FROM whitelist`
 		l.list, err = db.PrepareContext(ctx, sqlWhitelist)
 		if err != nil {
 			return nil, fmt.Errorf(fmtStrErr, "whitelist", err)
 		}
-	case "Blacklist":
+	case Blacklist:
 		// Blacklist query prepare
 		sqlInsertNetworkToBlacklist := `
 		INSERT INTO blacklist (
-			ip_range
+			net
 		)
 		VALUES ($1)`
 		l.insertNetwork, err = db.PrepareContext(ctx, sqlInsertNetworkToBlacklist)
 		if err != nil {
 			return nil, fmt.Errorf(fmtStrErr, "insertNetworkToBlacklist", err)
 		}
-		sqlDeleteNetworkFromBlacklist := `DELETE FROM blacklist WHERE ip_range = $1`
+		sqlDeleteNetworkFromBlacklist := `DELETE FROM blacklist WHERE net = $1`
 		l.deleteNetwork, err = db.PrepareContext(ctx, sqlDeleteNetworkFromBlacklist)
 		if err != nil {
 			return nil, fmt.Errorf(fmtStrErr, "deleteNetworkFromBlacklist", err)
 		}
-		sqlBlacklist := `SELECT ip_range FROM blacklist`
+		sqlBlacklist := `SELECT net FROM blacklist`
 		l.list, err = db.PrepareContext(ctx, sqlBlacklist)
 		if err != nil {
 			return nil, fmt.Errorf(fmtStrErr, "blacklist", err)

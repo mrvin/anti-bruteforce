@@ -10,11 +10,9 @@ services:
          - "50051:50051" # gRPC API
         env_file:
          - ../configs/anti-bruteforce.env
-        depends_on:
-          migrate:
-            condition: service_completed_successfully
         volumes:
          - ${HOME}/volumes_docker/anti-bruteforce/log:/var/log/anti-bruteforce/
+         - ${HOME}/volumes_docker/anti-bruteforce/sqlite-data:/data/
 
     anti-bruteforce-dev:
         profiles: ['dev']
@@ -26,30 +24,6 @@ services:
          - "50051:50051" # gRPC API
         env_file:
          - ../configs/anti-bruteforce.env
-        depends_on:
-          migrate:
-            condition: service_completed_successfully
         volumes:
          - ${HOME}/volumes_docker/anti-bruteforce/log:/var/log/anti-bruteforce/
-
-    migrate:
-        image: migrate/migrate:v4.19.1
-        command: ["-path", "/migrations", "-database",  "postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:${POSTGRES_PORT}/${POSTGRES_DB}?sslmode=disable", "up"]
-        depends_on:
-          postgres:
-            condition: service_healthy
-        volumes:
-         - ./../migrations:/migrations
-
-    # Create service with PostgreSQL.
-    postgres:
-        image: postgres:18.1-alpine3.23
-        ports:
-         - "5432"
-        env_file:
-         - ../configs/anti-bruteforce.env
-        healthcheck:
-          test: ["CMD", "pg_isready", "-q", "-d", "${POSTGRES_DB}", "-U", "${POSTGRES_USER}"]
-          interval: 1s
-        volumes:
-         - ${HOME}/volumes_docker/anti-bruteforce/postgres-data:/var/lib/postgresql/data
+         - ${HOME}/volumes_docker/anti-bruteforce/sqlite-data:/data/
