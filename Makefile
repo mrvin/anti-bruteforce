@@ -12,7 +12,13 @@ build-ab-admin:
 .PHONY: lint check-format codegen build build-ab-admin
 
 test:
-	go test -cover -v -race -count=10 ./internal/ratelimiting/leakybucket/
+	mkdir -p reports
+	go test -race -count=10 ./internal/ratelimiting/leakybucket/ -coverprofile=reports/coverage.out
+coverage:
+	go tool cover -func reports/coverage.out | grep "total:" | \
+	awk '{print ((int($$3) > 34) != 1) }'
+report:
+	go tool cover -html=reports/coverage.out -o reports/cover.html
 run:
 	docker compose -f deployments/docker-compose.yaml --env-file configs/anti-bruteforce.env --profile prod up --build
 down:
