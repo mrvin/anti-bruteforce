@@ -7,12 +7,12 @@ import (
 
 	"github.com/mrvin/anti-bruteforce/internal/grpcserver"
 	"github.com/mrvin/anti-bruteforce/internal/logger"
-	"github.com/mrvin/anti-bruteforce/internal/ratelimiting/leakybucket"
+	"github.com/mrvin/anti-bruteforce/internal/ratelimiting/fixedwindow"
 	"github.com/mrvin/anti-bruteforce/internal/storage/sqlite"
 )
 
 type Config struct {
-	Buckets leakybucket.Conf
+	Buckets fixedwindow.Conf
 	DB      sqlite.Conf
 	GRPC    grpcserver.Conf
 	Logger  logger.Conf

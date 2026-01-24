@@ -10,7 +10,7 @@ import (
 	"github.com/mrvin/anti-bruteforce/internal/grpcserver"
 	"github.com/mrvin/anti-bruteforce/internal/logger"
 	"github.com/mrvin/anti-bruteforce/internal/ratelimiting"
-	"github.com/mrvin/anti-bruteforce/internal/ratelimiting/leakybucket"
+	"github.com/mrvin/anti-bruteforce/internal/ratelimiting/fixedwindow"
 	"github.com/mrvin/anti-bruteforce/internal/storage"
 	"github.com/mrvin/anti-bruteforce/internal/storage/sqlite"
 )
@@ -62,7 +62,7 @@ func main() {
 	defer blacklist.Close()
 
 	// init rate limiting
-	var ratelimit ratelimiting.Ratelimiter = leakybucket.New(&conf.Buckets)
+	var ratelimit ratelimiting.Ratelimiter = fixedwindow.New(&conf.Buckets)
 	defer ratelimit.Stop()
 
 	server, err := grpcserver.New(ctx, &conf.GRPC, ratelimit, storage.Storage{Whitelist: whitelist, Blacklist: blacklist})

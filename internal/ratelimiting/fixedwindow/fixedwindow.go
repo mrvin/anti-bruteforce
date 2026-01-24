@@ -1,4 +1,4 @@
-package leakybucket
+package fixedwindow
 
 import (
 	"fmt"
@@ -62,25 +62,18 @@ func cleanAndDeleteBucket(m *sync.Map, maxLifetimeIdle uint64) {
 	m.Range(func(key, value interface{}) bool {
 		bucket := value.(*Bucket) //nolint:forcetypeassert
 
-		// Если rate == 0, увеличиваем lifetimeIdle на 1
-		// Иначе сбрасываем lifetimeIdle в 0 и rate в 0
-		for {
-			rate := bucket.rate.Load()
-			if rate == 0 {
-				currentLifetimeIdle := bucket.lifetimeIdle.Load()
-				if currentLifetimeIdle >= maxLifetimeIdle-1 {
-					toDelete = append(toDelete, key.(string)) //nolint:forcetypeassert
-					break
-				}
-				if bucket.lifetimeIdle.CompareAndSwap(currentLifetimeIdle, currentLifetimeIdle+1) {
-					break
-				}
-				continue
-			}
-
+		// Если rate > 0, bucket активен - просто сбрасываем счетчики
+		// (rate мог стать > 0 после загрузки, но это нормально)
+		if bucket.rate.Load() > 0 {
 			bucket.rate.Store(0)
 			bucket.lifetimeIdle.Store(0)
-			break
+			return true
+		}
+
+		bucket.lifetimeIdle.Add(1)
+
+		if bucket.lifetimeIdle.Load() >= maxLifetimeIdle {
+			toDelete = append(toDelete, key.(string)) //nolint:forcetypeassert
 		}
 
 		return true
@@ -118,6 +111,7 @@ func allow(keyBucket string, m *sync.Map, limit uint64) bool {
 			return false
 		}
 		if bucket.rate.CompareAndSwap(currentRate, currentRate+1) {
+			bucket.lifetimeIdle.Store(0)
 			return true
 		}
 	}

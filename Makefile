@@ -13,7 +13,7 @@ build-ab-admin:
 
 test:
 	mkdir -p reports
-	go test -race -count=10 ./internal/ratelimiting/leakybucket/ -coverprofile=reports/coverage.out
+	go test -race -count=10 ./internal/ratelimiting/fixedwindow/ -coverprofile=reports/coverage.out
 coverage:
 	go tool cover -func reports/coverage.out | grep "total:" | \
 	awk '{print ((int($$3) > 34) != 1) }'
