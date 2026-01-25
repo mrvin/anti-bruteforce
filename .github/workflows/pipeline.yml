@@ -1,0 +1,119 @@
+name: CI Checks
+
+on:
+  push:
+    branches:
+    - main
+    tags:
+    - 'v[0-9]+.[0-9]+.[0-9]+'
+
+  pull_request:
+    branches:
+    - main
+
+jobs:
+  lint-test-build:
+    name: Lint Test Build
+    runs-on: ubuntu-latest
+    steps:
+    - name: Check out code into the go module directory
+      uses: actions/checkout@v4
+
+    - name: Set up go 1.25
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.25.6'
+
+    - name: Run format check
+      run: make check-format
+
+    - name: Run golangci-lint
+      uses: golangci/golangci-lint-action@v8
+      with:
+        version: 'v2.8.0'
+        args: --timeout 5m --config=.golangci.yml
+
+    - name: Download go modules
+      run: go mod download
+
+    - name: Run Test
+      run: make test
+
+    - name: Coverage Check
+      run: make coverage
+
+    - name: Generate Report
+      run: make report
+
+    - name: Archive
+      uses: actions/upload-artifact@v4
+      with:
+        name: cover.html
+        path: reports/cover.html
+
+    - name: Build binary
+      run: make build
+
+    - name: Archive binary
+      uses: actions/upload-artifact@v4
+      with:
+        name: anti-bruteforce
+        path: bin/anti-bruteforce
+
+  deliver:
+    name: Release
+    permissions: write-all
+    runs-on: ubuntu-latest
+    needs: lint-test-build
+    if: github.event_name == 'push' && contains(github.ref, 'refs/tags/')
+    steps:
+    - name: Check out code into the go module directory
+      uses: actions/checkout@v4
+
+    - name: Download binary
+      uses: actions/download-artifact@v4
+      with:
+        name: anti-bruteforce
+
+    - name: Changelog
+      id: changelog
+      uses: requarks/changelog-action@v1.10.3
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        tag: ${{ github.ref_name }}
+        writeToFile: false
+
+    - name: Create release
+      uses: softprops/action-gh-release@v2.5.0
+      with:
+        body: ${{ steps.changelog.outputs.changes }}
+        files: ./anti-bruteforce
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  containerize:
+    name: Build and Push Docker Image
+    permissions:
+      contents: read
+      packages: write
+    runs-on: ubuntu-latest
+    needs: lint-test-build
+    if: github.event_name == 'push' && contains(github.ref, 'refs/tags/')
+    steps:
+    - name: Check out code into the go module directory
+      uses: actions/checkout@v4
+
+    - name: Login to github container registry
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{github.actor}}
+        password: ${{secrets.GITHUB_TOKEN}}
+
+    - name: Build and push docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: './Dockerfile'
+        push: true
+        tags: 'ghcr.io/${{ github.actor }}/anti-bruteforce:${{ github.ref_name }}'
