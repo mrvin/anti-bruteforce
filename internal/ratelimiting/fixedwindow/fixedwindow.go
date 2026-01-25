@@ -20,7 +20,7 @@ type Conf struct {
 }
 
 type Bucket struct {
-	rate         atomic.Uint64
+	count        atomic.Uint64
 	lifetimeIdle atomic.Uint64
 }
 
@@ -59,13 +59,13 @@ func New(conf *Conf) *Buckets {
 func cleanAndDeleteBucket(m *sync.Map, maxLifetimeIdle uint64) {
 	toDelete := make([]string, 0)
 
-	m.Range(func(key, value interface{}) bool {
+	m.Range(func(key, value any) bool {
 		bucket := value.(*Bucket) //nolint:forcetypeassert
 
-		// Если rate > 0, bucket активен - просто сбрасываем счетчики
-		// (rate мог стать > 0 после загрузки, но это нормально)
-		if bucket.rate.Load() > 0 {
-			bucket.rate.Store(0)
+		// Если count > 0, bucket активен - просто сбрасываем счетчики
+		// (count мог стать > 0 после загрузки, но это нормально)
+		if bucket.count.Load() > 0 {
+			bucket.count.Store(0)
 			bucket.lifetimeIdle.Store(0)
 			return true
 		}
@@ -102,15 +102,15 @@ func allow(keyBucket string, m *sync.Map, limit uint64) bool {
 	val, _ := m.LoadOrStore(keyBucket, &Bucket{}) //nolint:exhaustruct
 	bucket := val.(*Bucket)                       //nolint:forcetypeassert
 
-	// Попытки увеличить rate на 1, если не превышен лимит
+	// Попытки увеличить count на 1, если не превышен лимит
 	// Если превышен, вернуть false
 	// Иначе вернуть true
 	for {
-		currentRate := bucket.rate.Load()
-		if currentRate >= limit {
+		currentCount := bucket.count.Load()
+		if currentCount >= limit {
 			return false
 		}
-		if bucket.rate.CompareAndSwap(currentRate, currentRate+1) {
+		if bucket.count.CompareAndSwap(currentCount, currentCount+1) {
 			bucket.lifetimeIdle.Store(0)
 			return true
 		}
@@ -123,7 +123,7 @@ func cleanBucket(keyBucket string, m *sync.Map) error {
 		return fmt.Errorf("%w: %s", ratelimiting.ErrBucketNotFound, keyBucket)
 	}
 	bucket := val.(*Bucket) //nolint:forcetypeassert
-	bucket.rate.Store(0)
+	bucket.count.Store(0)
 	bucket.lifetimeIdle.Store(0)
 
 	return nil
