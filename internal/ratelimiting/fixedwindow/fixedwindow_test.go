@@ -10,16 +10,15 @@ import (
 const numGoroutine = 20
 
 var confBucketsTest = Conf{
-	LimitLogin:      10,
-	LimitPassword:   100,
-	LimitIP:         1000,
-	MaxLifetimeIdle: 2,
+	LimitLogin:    10,
+	LimitPassword: 100,
+	LimitIP:       1000,
+	Interval:      100 * time.Millisecond, // 0,1 секунды
 }
 
 func TestAllow(t *testing.T) {
 	const numRepetition = 2
 
-	timeInterval = 100 * time.Millisecond // 0,1 секунды
 	buckets := New(&confBucketsTest)
 	defer buckets.Stop()
 
@@ -47,7 +46,7 @@ func TestAllow(t *testing.T) {
 		timeTest := time.Since(timeStart)
 		delta := 5 * time.Millisecond
 		if i != numRepetition-1 {
-			time.Sleep(timeInterval - timeTest + delta)
+			time.Sleep(confBucketsTest.Interval - timeTest + delta)
 		}
 	}
 }

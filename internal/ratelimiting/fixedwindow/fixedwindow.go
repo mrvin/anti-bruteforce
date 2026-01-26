@@ -10,18 +10,17 @@ import (
 	"github.com/mrvin/anti-bruteforce/internal/ratelimiting"
 )
 
-var timeInterval = time.Minute
-
 type Conf struct {
-	LimitLogin      uint64
-	LimitPassword   uint64
-	LimitIP         uint64
-	MaxLifetimeIdle uint64
+	LimitLogin    uint64
+	LimitPassword uint64
+	LimitIP       uint64
+	TTLBucket     time.Duration
+	Interval      time.Duration
 }
 
 type Bucket struct {
-	count        atomic.Uint64
-	lifetimeIdle atomic.Uint64
+	count      atomic.Uint64
+	lastAccess atomic.Int64 // time.Unix()
 }
 
 type Buckets struct {
@@ -32,6 +31,9 @@ type Buckets struct {
 	limitLogin    uint64
 	limitPassword uint64
 	limitIP       uint64
+
+	TTLBucket time.Duration
+	Interval  time.Duration
 
 	done     chan struct{}
 	doneOnce sync.Once
@@ -46,33 +48,34 @@ func New(conf *Conf) *Buckets {
 		limitLogin:    conf.LimitLogin,
 		limitPassword: conf.LimitPassword,
 		limitIP:       conf.LimitIP,
-		done:          make(chan struct{}),
-		doneOnce:      sync.Once{},
+
+		TTLBucket: conf.TTLBucket,
+		Interval:  conf.Interval,
+
+		done:     make(chan struct{}),
+		doneOnce: sync.Once{},
 	}
 
-	// Если MaxLifetimeIdle == 0 — то bucket'ы не удаляються
-	buckets.startCleanup(conf.MaxLifetimeIdle)
+	buckets.startCleanup()
 
 	return buckets
 }
 
-func cleanAndDeleteBucket(m *sync.Map, maxLifetimeIdle uint64) {
+func cleanAndDeleteBucket(m *sync.Map, ttl time.Duration) {
 	toDelete := make([]string, 0)
+	now := time.Now().Unix()
+	ttlSeconds := int64(ttl.Seconds())
 
 	m.Range(func(key, value any) bool {
 		bucket := value.(*Bucket) //nolint:forcetypeassert
 
-		// Если count > 0, bucket активен - просто сбрасываем счетчики
-		// (count мог стать > 0 после загрузки, но это нормально)
 		if bucket.count.Load() > 0 {
 			bucket.count.Store(0)
-			bucket.lifetimeIdle.Store(0)
 			return true
 		}
 
-		bucket.lifetimeIdle.Add(1)
-
-		if bucket.lifetimeIdle.Load() >= maxLifetimeIdle {
+		lastAccess := bucket.lastAccess.Load()
+		if now-lastAccess > ttlSeconds {
 			toDelete = append(toDelete, key.(string)) //nolint:forcetypeassert
 		}
 
@@ -99,8 +102,13 @@ func (b *Buckets) Allow(ip, password, login string) bool {
 }
 
 func allow(keyBucket string, m *sync.Map, limit uint64) bool {
-	val, _ := m.LoadOrStore(keyBucket, &Bucket{}) //nolint:exhaustruct
-	bucket := val.(*Bucket)                       //nolint:forcetypeassert
+	val, loaded := m.LoadOrStore(keyBucket, &Bucket{}) //nolint:exhaustruct
+	bucket := val.(*Bucket)                            //nolint:forcetypeassert
+
+	// Инициализировать lastAccess при первом создании бакета
+	if !loaded {
+		bucket.lastAccess.Store(time.Now().Unix())
+	}
 
 	// Попытки увеличить count на 1, если не превышен лимит
 	// Если превышен, вернуть false
@@ -111,7 +119,7 @@ func allow(keyBucket string, m *sync.Map, limit uint64) bool {
 			return false
 		}
 		if bucket.count.CompareAndSwap(currentCount, currentCount+1) {
-			bucket.lifetimeIdle.Store(0)
+			bucket.lastAccess.Store(time.Now().Unix())
 			return true
 		}
 	}
@@ -124,7 +132,7 @@ func cleanBucket(keyBucket string, m *sync.Map) error {
 	}
 	bucket := val.(*Bucket) //nolint:forcetypeassert
 	bucket.count.Store(0)
-	bucket.lifetimeIdle.Store(0)
+	bucket.lastAccess.Store(time.Now().Unix())
 
 	return nil
 }
@@ -147,17 +155,17 @@ func (b *Buckets) Stop() {
 	})
 }
 
-func (b *Buckets) startCleanup(maxLifetimeIdle uint64) {
-	ticker := time.NewTicker(timeInterval)
+func (b *Buckets) startCleanup() {
+	ticker := time.NewTicker(b.Interval)
 	go func() {
 		defer ticker.Stop()
 		for {
 			select {
 			case <-ticker.C:
 				slog.Debug("Start cleaning buckets")
-				cleanAndDeleteBucket(&b.mBucketsIP, maxLifetimeIdle)
-				cleanAndDeleteBucket(&b.mBucketsPassword, maxLifetimeIdle)
-				cleanAndDeleteBucket(&b.mBucketsLogin, maxLifetimeIdle)
+				cleanAndDeleteBucket(&b.mBucketsIP, b.TTLBucket)
+				cleanAndDeleteBucket(&b.mBucketsPassword, b.TTLBucket)
+				cleanAndDeleteBucket(&b.mBucketsLogin, b.TTLBucket)
 			case <-b.done:
 				return
 			}
