@@ -8,12 +8,12 @@ import (
 
 	"github.com/mrvin/anti-bruteforce/internal/grpcserver"
 	"github.com/mrvin/anti-bruteforce/internal/logger"
-	"github.com/mrvin/anti-bruteforce/internal/ratelimiting/fixedwindow"
+	"github.com/mrvin/anti-bruteforce/internal/ratelimiting"
 	"github.com/mrvin/anti-bruteforce/internal/storage/sqlite"
 )
 
 type Config struct {
-	Buckets fixedwindow.Conf
+	Buckets ratelimiting.Conf
 	DB      sqlite.Conf
 	GRPC    grpcserver.Conf
 	Logger  logger.Conf

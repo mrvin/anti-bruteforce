@@ -2,7 +2,16 @@ package ratelimiting
 
 import (
 	"errors"
+	"time"
 )
+
+type Conf struct {
+	LimitLogin    uint64
+	LimitPassword uint64
+	LimitIP       uint64
+	TTLBucket     time.Duration
+	Interval      time.Duration
+}
 
 var (
 	ErrBucketNotFound = errors.New("bucket not found")

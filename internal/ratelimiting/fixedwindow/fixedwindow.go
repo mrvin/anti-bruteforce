@@ -4,29 +4,21 @@ import (
 	"fmt"
 	"log/slog"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/mrvin/anti-bruteforce/internal/ratelimiting"
 )
 
-type Conf struct {
-	LimitLogin    uint64
-	LimitPassword uint64
-	LimitIP       uint64
-	TTLBucket     time.Duration
-	Interval      time.Duration
+type Window struct {
+	count     uint64
+	startTime int64 // time.UnixNano()
+	mu        sync.Mutex
 }
 
-type Bucket struct {
-	count      atomic.Uint64
-	lastAccess atomic.Int64 // time.Unix()
-}
-
-type Buckets struct {
-	mBucketsLogin    sync.Map // map[string]*Bucket
-	mBucketsPassword sync.Map
-	mBucketsIP       sync.Map
+type Limiter struct {
+	mWindowsLogin    sync.Map // map[string]*Window
+	mWindowsPassword sync.Map
+	mWindowsIP       sync.Map
 
 	limitLogin    uint64
 	limitPassword uint64
@@ -39,11 +31,11 @@ type Buckets struct {
 	doneOnce sync.Once
 }
 
-func New(conf *Conf) *Buckets {
-	buckets := &Buckets{
-		mBucketsLogin:    sync.Map{},
-		mBucketsPassword: sync.Map{},
-		mBucketsIP:       sync.Map{},
+func New(conf *ratelimiting.Conf) *Limiter {
+	limiter := &Limiter{
+		mWindowsLogin:    sync.Map{},
+		mWindowsPassword: sync.Map{},
+		mWindowsIP:       sync.Map{},
 
 		limitLogin:    conf.LimitLogin,
 		limitPassword: conf.LimitPassword,
@@ -56,28 +48,23 @@ func New(conf *Conf) *Buckets {
 		doneOnce: sync.Once{},
 	}
 
-	buckets.startCleanup()
+	limiter.startDeleting()
 
-	return buckets
+	return limiter
 }
 
-func cleanAndDeleteBucket(m *sync.Map, ttl time.Duration) {
+func deleteOldWindows(m *sync.Map, ttl time.Duration, interval time.Duration) {
 	toDelete := make([]string, 0)
-	now := time.Now().Unix()
-	ttlSeconds := int64(ttl.Seconds())
+	now := time.Now().UnixNano()
 
 	m.Range(func(key, value any) bool {
-		bucket := value.(*Bucket) //nolint:forcetypeassert
+		window := value.(*Window) //nolint:forcetypeassert
 
-		if bucket.count.Load() > 0 {
-			bucket.count.Store(0)
-			return true
-		}
-
-		lastAccess := bucket.lastAccess.Load()
-		if now-lastAccess > ttlSeconds {
+		window.mu.Lock()
+		if now-(window.startTime+interval.Nanoseconds()) > ttl.Nanoseconds() {
 			toDelete = append(toDelete, key.(string)) //nolint:forcetypeassert
 		}
+		window.mu.Unlock()
 
 		return true
 	})
@@ -87,86 +74,89 @@ func cleanAndDeleteBucket(m *sync.Map, ttl time.Duration) {
 	}
 }
 
-func (b *Buckets) Allow(ip, password, login string) bool {
-	if !allow(ip, &b.mBucketsIP, b.limitIP) {
+func (l *Limiter) Allow(ip, password, login string) bool {
+	if !allow(ip, &l.mWindowsIP, l.limitIP, l.Interval) {
 		return false
 	}
-	if !allow(password, &b.mBucketsPassword, b.limitPassword) {
+	if !allow(password, &l.mWindowsPassword, l.limitPassword, l.Interval) {
 		return false
 	}
-	if !allow(login, &b.mBucketsLogin, b.limitLogin) {
+	if !allow(login, &l.mWindowsLogin, l.limitLogin, l.Interval) {
 		return false
 	}
 
 	return true
 }
 
-func allow(keyBucket string, m *sync.Map, limit uint64) bool {
-	val, loaded := m.LoadOrStore(keyBucket, &Bucket{}) //nolint:exhaustruct
-	bucket := val.(*Bucket)                            //nolint:forcetypeassert
+func allow(keyBucket string, m *sync.Map, limit uint64, interval time.Duration) bool {
+	now := time.Now().UnixNano()
+	val, _ := m.LoadOrStore(keyBucket, &Window{}) //nolint:exhaustruct
+	window := val.(*Window)                       //nolint:forcetypeassert
 
-	// Инициализировать lastAccess при первом создании бакета
-	if !loaded {
-		bucket.lastAccess.Store(time.Now().Unix())
+	window.mu.Lock()
+	defer window.mu.Unlock()
+
+	if window.startTime == 0 || now-window.startTime >= interval.Nanoseconds() {
+		window.startTime = now
+		window.count = 0
 	}
 
-	// Попытки увеличить count на 1, если не превышен лимит
-	// Если превышен, вернуть false
-	// Иначе вернуть true
-	for {
-		currentCount := bucket.count.Load()
-		if currentCount >= limit {
-			return false
-		}
-		if bucket.count.CompareAndSwap(currentCount, currentCount+1) {
-			bucket.lastAccess.Store(time.Now().Unix())
-			return true
-		}
+	if window.count >= limit {
+		return false
 	}
+
+	window.count++
+
+	return true
 }
 
-func cleanBucket(keyBucket string, m *sync.Map) error {
+func cleanWindow(keyBucket string, m *sync.Map) error {
+	now := time.Now().UnixNano()
 	val, ok := m.Load(keyBucket)
 	if !ok {
 		return fmt.Errorf("%w: %s", ratelimiting.ErrBucketNotFound, keyBucket)
 	}
-	bucket := val.(*Bucket) //nolint:forcetypeassert
-	bucket.count.Store(0)
-	bucket.lastAccess.Store(time.Now().Unix())
+	window := val.(*Window) //nolint:forcetypeassert
+
+	window.mu.Lock()
+	defer window.mu.Unlock()
+
+	window.startTime = now
+	window.count = 0
 
 	return nil
 }
 
-func (b *Buckets) CleanBucketIP(ip string) error {
-	return cleanBucket(ip, &b.mBucketsIP)
+func (l *Limiter) CleanBucketIP(ip string) error {
+	return cleanWindow(ip, &l.mWindowsIP)
 }
 
-func (b *Buckets) CleanBucketPassword(password string) error {
-	return cleanBucket(password, &b.mBucketsPassword)
+func (l *Limiter) CleanBucketPassword(password string) error {
+	return cleanWindow(password, &l.mWindowsPassword)
 }
 
-func (b *Buckets) CleanBucketLogin(login string) error {
-	return cleanBucket(login, &b.mBucketsLogin)
+func (l *Limiter) CleanBucketLogin(login string) error {
+	return cleanWindow(login, &l.mWindowsLogin)
 }
 
-func (b *Buckets) Stop() {
-	b.doneOnce.Do(func() {
-		close(b.done)
+func (l *Limiter) Stop() {
+	l.doneOnce.Do(func() {
+		close(l.done)
 	})
 }
 
-func (b *Buckets) startCleanup() {
-	ticker := time.NewTicker(b.Interval)
+func (l *Limiter) startDeleting() {
+	ticker := time.NewTicker(l.Interval)
 	go func() {
 		defer ticker.Stop()
 		for {
 			select {
 			case <-ticker.C:
-				slog.Debug("Start cleaning buckets")
-				cleanAndDeleteBucket(&b.mBucketsIP, b.TTLBucket)
-				cleanAndDeleteBucket(&b.mBucketsPassword, b.TTLBucket)
-				cleanAndDeleteBucket(&b.mBucketsLogin, b.TTLBucket)
-			case <-b.done:
+				slog.Debug("Start delete old windows")
+				deleteOldWindows(&l.mWindowsIP, l.TTLBucket, l.Interval)
+				deleteOldWindows(&l.mWindowsPassword, l.TTLBucket, l.Interval)
+				deleteOldWindows(&l.mWindowsLogin, l.TTLBucket, l.Interval)
+			case <-l.done:
 				return
 			}
 		}
