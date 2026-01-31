@@ -13,10 +13,10 @@ build-ab-admin:
 
 test:
 	mkdir -p reports
-	go test -race -count=10 ./internal/ratelimiting/fixedwindow/ -coverprofile=reports/coverage.out
+	go test -race -count=10 ./internal/ratelimiting/... -coverprofile=reports/coverage.out
 coverage:
 	go tool cover -func reports/coverage.out | grep "total:" | \
-	awk '{print ((int($$3) > 86) != 1) }'
+	awk '{print ((int($$3) > 67) != 1) }'
 report:
 	go tool cover -html=reports/coverage.out -o reports/cover.html
 run:

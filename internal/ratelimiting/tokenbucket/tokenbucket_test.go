@@ -1,4 +1,4 @@
-package fixedwindow
+package tokenbucket
 
 import (
 	"testing"
@@ -15,14 +15,14 @@ var confLimiterTest = ratelimiting.Conf{
 	TTLBucket:     1000 * time.Millisecond,
 }
 
-func TestAllowFixedWindow(t *testing.T) {
+func TestAllowTokenBucket(t *testing.T) {
 	limiter := New(&confLimiterTest)
 	defer limiter.Stop()
 
 	ratelimiting.RunTestAllow(t, limiter, &confLimiterTest)
 }
 
-func TestCleanBucketFixedWindow(t *testing.T) {
+func TestCleanBucketTokenBucket(t *testing.T) {
 	limiter := New(&confLimiterTest)
 	defer limiter.Stop()
 

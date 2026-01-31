@@ -1,3 +1,4 @@
+// Package fixedwindow реализует счетчик фиксированных интервалов (fixed window counter) с ленивым пополнением (при запросе).
 package fixedwindow
 
 import (
@@ -24,8 +25,8 @@ type Limiter struct {
 	limitPassword uint64
 	limitIP       uint64
 
-	TTLBucket time.Duration
-	Interval  time.Duration
+	ttlBucket time.Duration
+	interval  time.Duration
 
 	done     chan struct{}
 	doneOnce sync.Once
@@ -41,8 +42,8 @@ func New(conf *ratelimiting.Conf) *Limiter {
 		limitPassword: conf.LimitPassword,
 		limitIP:       conf.LimitIP,
 
-		TTLBucket: conf.TTLBucket,
-		Interval:  conf.Interval,
+		ttlBucket: conf.TTLBucket,
+		interval:  conf.Interval,
 
 		done:     make(chan struct{}),
 		doneOnce: sync.Once{},
@@ -75,13 +76,13 @@ func deleteOldWindows(m *sync.Map, ttl time.Duration, interval time.Duration) {
 }
 
 func (l *Limiter) Allow(ip, password, login string) bool {
-	if !allow(ip, &l.mWindowsIP, l.limitIP, l.Interval) {
+	if !allow(ip, &l.mWindowsIP, l.limitIP, l.interval) {
 		return false
 	}
-	if !allow(password, &l.mWindowsPassword, l.limitPassword, l.Interval) {
+	if !allow(password, &l.mWindowsPassword, l.limitPassword, l.interval) {
 		return false
 	}
-	if !allow(login, &l.mWindowsLogin, l.limitLogin, l.Interval) {
+	if !allow(login, &l.mWindowsLogin, l.limitLogin, l.interval) {
 		return false
 	}
 
@@ -146,16 +147,16 @@ func (l *Limiter) Stop() {
 }
 
 func (l *Limiter) startDeleting() {
-	ticker := time.NewTicker(l.Interval)
+	ticker := time.NewTicker(l.interval)
 	go func() {
 		defer ticker.Stop()
 		for {
 			select {
 			case <-ticker.C:
 				slog.Debug("Start delete old windows")
-				deleteOldWindows(&l.mWindowsIP, l.TTLBucket, l.Interval)
-				deleteOldWindows(&l.mWindowsPassword, l.TTLBucket, l.Interval)
-				deleteOldWindows(&l.mWindowsLogin, l.TTLBucket, l.Interval)
+				deleteOldWindows(&l.mWindowsIP, l.ttlBucket, l.interval)
+				deleteOldWindows(&l.mWindowsPassword, l.ttlBucket, l.interval)
+				deleteOldWindows(&l.mWindowsLogin, l.ttlBucket, l.interval)
 			case <-l.done:
 				return
 			}
