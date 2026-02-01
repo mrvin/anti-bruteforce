@@ -32,8 +32,9 @@ type Limiter struct {
 	refillPeriodPassword time.Duration
 	refillPeriodIP       time.Duration
 
-	done     chan struct{}
-	doneOnce sync.Once
+	done       chan struct{}
+	doneOnce   sync.Once
+	wgDeleting sync.WaitGroup
 }
 
 func New(conf *ratelimiting.Conf) *Limiter {
@@ -54,8 +55,9 @@ func New(conf *ratelimiting.Conf) *Limiter {
 		refillPeriodPassword: time.Duration(uint64(conf.Interval.Nanoseconds()) / conf.LimitPassword), //nolint:gosec
 		refillPeriodIP:       time.Duration(uint64(conf.Interval.Nanoseconds()) / conf.LimitIP),       //nolint:gosec
 
-		done:     make(chan struct{}),
-		doneOnce: sync.Once{},
+		done:       make(chan struct{}),
+		doneOnce:   sync.Once{},
+		wgDeleting: sync.WaitGroup{},
 	}
 
 	limiter.startDeleting()
@@ -71,10 +73,12 @@ func deleteOldBuckets(m *sync.Map, ttl time.Duration, refillPeriod time.Duration
 		bucket := value.(*Bucket) //nolint:forcetypeassert
 
 		bucket.mu.Lock()
-		if now-(bucket.lastRefill+refillPeriod.Nanoseconds()) > ttl.Nanoseconds() {
+		lastAccess := bucket.lastRefill + refillPeriod.Nanoseconds()
+		bucket.mu.Unlock()
+
+		if now-lastAccess > ttl.Nanoseconds() {
 			toDelete = append(toDelete, key.(string)) //nolint:forcetypeassert
 		}
-		bucket.mu.Unlock()
 
 		return true
 	})
@@ -155,13 +159,13 @@ func (l *Limiter) CleanBucketLogin(login string) error {
 func (l *Limiter) Stop() {
 	l.doneOnce.Do(func() {
 		close(l.done)
+		l.wgDeleting.Wait()
 	})
 }
 
 func (l *Limiter) startDeleting() {
 	ticker := time.NewTicker(l.interval)
-	go func() {
-		defer ticker.Stop()
+	l.wgDeleting.Go(func() {
 		for {
 			select {
 			case <-ticker.C:
@@ -170,8 +174,9 @@ func (l *Limiter) startDeleting() {
 				deleteOldBuckets(&l.mBucketsPassword, l.ttlBucket, l.refillPeriodPassword)
 				deleteOldBuckets(&l.mBucketsLogin, l.ttlBucket, l.refillPeriodLogin)
 			case <-l.done:
+				ticker.Stop()
 				return
 			}
 		}
-	}()
+	})
 }

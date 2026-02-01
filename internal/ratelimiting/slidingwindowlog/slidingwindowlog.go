@@ -1,5 +1,5 @@
-// Package fixedwindow реализует счетчик фиксированных интервалов (fixed window counter) с ленивым сбросом счетчика (при запросе).
-package fixedwindow
+// Package slidingwindowlog реализует журнал скользящих интервалов (sliding window log).
+package slidingwindowlog
 
 import (
 	"fmt"
@@ -11,9 +11,8 @@ import (
 )
 
 type Window struct {
-	count     uint64
-	startTime int64 // time.UnixNano()
-	mu        sync.Mutex
+	log []int64 // time.UnixNano()
+	mu  sync.Mutex
 }
 
 type Limiter struct {
@@ -56,18 +55,21 @@ func New(conf *ratelimiting.Conf) *Limiter {
 	return limiter
 }
 
-func deleteOldWindows(m *sync.Map, ttl time.Duration, interval time.Duration) {
+func deleteOldWindows(m *sync.Map, ttl time.Duration) {
 	toDelete := make([]string, 0)
 	now := time.Now().UnixNano()
 
 	m.Range(func(key, value any) bool {
 		window := value.(*Window) //nolint:forcetypeassert
 
+		lastTimestamp := int64(0)
 		window.mu.Lock()
-		lastAccess := window.startTime + interval.Nanoseconds()
+		if len(window.log) > 0 {
+			lastTimestamp = window.log[len(window.log)-1]
+		}
 		window.mu.Unlock()
 
-		if now-lastAccess > ttl.Nanoseconds() {
+		if now-lastTimestamp > ttl.Nanoseconds() {
 			toDelete = append(toDelete, key.(string)) //nolint:forcetypeassert
 		}
 
@@ -98,25 +100,28 @@ func allow(keyBucket string, m *sync.Map, limit uint64, interval time.Duration) 
 	val, _ := m.LoadOrStore(keyBucket, &Window{}) //nolint:exhaustruct
 	window := val.(*Window)                       //nolint:forcetypeassert
 
+	startTimeWindow := now - interval.Nanoseconds()
+
 	window.mu.Lock()
 	defer window.mu.Unlock()
 
-	if window.startTime == 0 || now-window.startTime >= interval.Nanoseconds() {
-		window.startTime = now
-		window.count = 0
+	i := 0
+	for i < len(window.log) && window.log[i] < startTimeWindow {
+		i++
 	}
+	window.log = window.log[i:]
 
-	if window.count >= limit {
+	if uint64(len(window.log)) >= limit {
 		return false
 	}
+	window.log = append(window.log, now)
 
-	window.count++
+	//TODO: Ограничивать емкость среза
 
 	return true
 }
 
 func cleanWindow(keyBucket string, m *sync.Map) error {
-	now := time.Now().UnixNano()
 	val, ok := m.Load(keyBucket)
 	if !ok {
 		return fmt.Errorf("%w: %s", ratelimiting.ErrBucketNotFound, keyBucket)
@@ -126,8 +131,7 @@ func cleanWindow(keyBucket string, m *sync.Map) error {
 	window.mu.Lock()
 	defer window.mu.Unlock()
 
-	window.startTime = now
-	window.count = 0
+	window.log = []int64{}
 
 	return nil
 }
@@ -158,9 +162,9 @@ func (l *Limiter) startDeleting() {
 			select {
 			case <-ticker.C:
 				slog.Debug("Start delete old windows")
-				deleteOldWindows(&l.mWindowsIP, l.ttlBucket, l.interval)
-				deleteOldWindows(&l.mWindowsPassword, l.ttlBucket, l.interval)
-				deleteOldWindows(&l.mWindowsLogin, l.ttlBucket, l.interval)
+				deleteOldWindows(&l.mWindowsIP, l.ttlBucket)
+				deleteOldWindows(&l.mWindowsPassword, l.ttlBucket)
+				deleteOldWindows(&l.mWindowsLogin, l.ttlBucket)
 			case <-l.done:
 				ticker.Stop()
 				return
