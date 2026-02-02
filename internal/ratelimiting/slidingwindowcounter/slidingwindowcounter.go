@@ -106,10 +106,10 @@ func allow(keyBucket string, m *sync.Map, limit uint64, interval time.Duration) 
 		window.prevCount = window.currCount
 		window.currCount = 0
 		window.startTime += interval.Nanoseconds()
-	}
-	if window.startTime+(interval.Nanoseconds()*2) < now { //nolint:mnd
-		window.prevCount = 0
-		window.startTime = now
+		if window.startTime+(interval.Nanoseconds()*2) < now { //nolint:mnd
+			window.prevCount = 0
+			window.startTime = now
+		}
 	}
 
 	fInterval := float64(interval.Nanoseconds())

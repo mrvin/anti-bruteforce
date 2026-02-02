@@ -15,6 +15,14 @@ var confLimiterTest = ratelimiting.Conf{
 	TTLBucket:     1000 * time.Millisecond,
 }
 
+var confBenchmark = ratelimiting.Conf{
+	LimitLogin:    1_000_000,
+	LimitPassword: 1_000_000,
+	LimitIP:       1_000_000,
+	Interval:      100 * time.Millisecond,
+	TTLBucket:     1000 * time.Millisecond,
+}
+
 func TestAllowSlidingWindowCounter(t *testing.T) {
 	limiter := New(&confLimiterTest)
 	defer limiter.Stop()
@@ -54,4 +62,19 @@ func TestCleanNonexistentBucketSlidingWindowCounter(t *testing.T) {
 	defer limiter.Stop()
 
 	ratelimiting.RunCleanNonexistentBucket(t, limiter)
+}
+
+func BenchmarkSlidingWindowCounter(b *testing.B) {
+	limiter := New(&confBenchmark)
+	defer limiter.Stop()
+
+	ip := "127.0.0.1"
+	password := "qwerty"
+	login := "Bob"
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = limiter.Allow(ip, password, login)
+	}
+	b.StopTimer()
 }

@@ -19,8 +19,10 @@ coverage:
 	awk '{print ((int($$3) > 79) != 1) }'
 report:
 	go tool cover -html=reports/coverage.out -o reports/cover.html
+bench:
+	go test -bench=. ./internal/ratelimiting/... -benchmem -benchtime 10s
 run:
 	docker compose -f deployments/docker-compose.yaml --env-file configs/anti-bruteforce.env --profile prod up --build
 down:
 	docker compose -f deployments/docker-compose.yaml --env-file configs/anti-bruteforce.env --profile prod down
-.PHONY: test run down
+.PHONY: test coverage report bench run down
