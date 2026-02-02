@@ -28,3 +28,10 @@ func TestCleanBucketFixedWindow(t *testing.T) {
 
 	ratelimiting.RunTestCleanBucket(t, limiter, &confLimiterTest)
 }
+
+func TestCleanNonexistentBucketFixedWindow(t *testing.T) {
+	limiter := New(&confLimiterTest)
+	defer limiter.Stop()
+
+	ratelimiting.RunCleanNonexistentBucket(t, limiter)
+}
