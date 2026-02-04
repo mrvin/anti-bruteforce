@@ -17,20 +17,14 @@ type Bucket struct {
 }
 
 type Limiter struct {
-	mBucketsLogin    sync.Map // map[string]*Bucket
-	mBucketsPassword sync.Map
-	mBucketsIP       sync.Map
+	mBuckets sync.Map // map[string]*Bucket
 
-	limitLogin    uint64
-	limitPassword uint64
-	limitIP       uint64
+	limits []uint64
 
 	ttlBucket time.Duration
 	interval  time.Duration
 
-	refillPeriodLogin    time.Duration
-	refillPeriodPassword time.Duration
-	refillPeriodIP       time.Duration
+	refillPeriods []time.Duration
 
 	done       chan struct{}
 	doneOnce   sync.Once
@@ -39,21 +33,19 @@ type Limiter struct {
 
 func New(conf *ratelimiting.Conf) *Limiter {
 	limiter := &Limiter{
-		mBucketsLogin:    sync.Map{},
-		mBucketsPassword: sync.Map{},
-		mBucketsIP:       sync.Map{},
+		mBuckets: sync.Map{},
 
-		limitLogin:    conf.LimitLogin,
-		limitPassword: conf.LimitPassword,
-		limitIP:       conf.LimitIP,
+		limits: []uint64{conf.LimitIP, conf.LimitPassword, conf.LimitLogin},
 
 		ttlBucket: conf.TTLBucket,
 		interval:  conf.Interval,
 
 		// Необходимо подбирать подходящие значения для периода пополнения и размера пополнения корзины.
-		refillPeriodLogin:    time.Duration(uint64(conf.Interval.Nanoseconds()) / conf.LimitLogin),    //nolint:gosec
-		refillPeriodPassword: time.Duration(uint64(conf.Interval.Nanoseconds()) / conf.LimitPassword), //nolint:gosec
-		refillPeriodIP:       time.Duration(uint64(conf.Interval.Nanoseconds()) / conf.LimitIP),       //nolint:gosec
+		refillPeriods: []time.Duration{
+			time.Duration(uint64(conf.Interval.Nanoseconds()) / conf.LimitIP),       //nolint:gosec
+			time.Duration(uint64(conf.Interval.Nanoseconds()) / conf.LimitPassword), //nolint:gosec
+			time.Duration(uint64(conf.Interval.Nanoseconds()) / conf.LimitLogin),    //nolint:gosec
+		},
 
 		done:       make(chan struct{}),
 		doneOnce:   sync.Once{},
@@ -65,47 +57,47 @@ func New(conf *ratelimiting.Conf) *Limiter {
 	return limiter
 }
 
-func deleteOldBuckets(m *sync.Map, ttl time.Duration, refillPeriod time.Duration) {
-	toDelete := make([]string, 0)
-	now := time.Now().UnixNano()
-
-	m.Range(func(key, value any) bool {
-		bucket := value.(*Bucket) //nolint:forcetypeassert
-
-		bucket.mu.Lock()
-		lastAccess := bucket.lastRefill + refillPeriod.Nanoseconds()
-		bucket.mu.Unlock()
-
-		if now-lastAccess > ttl.Nanoseconds() {
-			toDelete = append(toDelete, key.(string)) //nolint:forcetypeassert
-		}
-
-		return true
-	})
-
-	for _, key := range toDelete {
-		m.Delete(key)
-	}
-}
-
 func (l *Limiter) Allow(ip, password, login string) bool {
-	if !allow(ip, &l.mBucketsIP, l.limitIP, l.refillPeriodIP) {
+	if !l.allow(ratelimiting.TypeIP, ip) {
 		return false
 	}
-	if !allow(password, &l.mBucketsPassword, l.limitPassword, l.refillPeriodPassword) {
+	if !l.allow(ratelimiting.TypePassword, password) {
 		return false
 	}
-	if !allow(login, &l.mBucketsLogin, l.limitLogin, l.refillPeriodLogin) {
+	if !l.allow(ratelimiting.TypeLogin, login) {
 		return false
 	}
 
 	return true
 }
 
-func allow(keyBucket string, m *sync.Map, limit uint64, refillPeriod time.Duration) bool {
+func (l *Limiter) CleanBucketIP(ip string) error {
+	return l.cleanBucket(ratelimiting.TypeIP, ip)
+}
+
+func (l *Limiter) CleanBucketPassword(password string) error {
+	return l.cleanBucket(ratelimiting.TypePassword, password)
+}
+
+func (l *Limiter) CleanBucketLogin(login string) error {
+	return l.cleanBucket(ratelimiting.TypeLogin, login)
+}
+
+func (l *Limiter) Stop() {
+	l.doneOnce.Do(func() {
+		close(l.done)
+		l.wgDeleting.Wait()
+	})
+}
+
+func (l *Limiter) allow(bType ratelimiting.BucketType, bucketKey string) bool {
 	now := time.Now().UnixNano()
-	val, _ := m.LoadOrStore(keyBucket, &Bucket{}) //nolint:exhaustruct
-	bucket := val.(*Bucket)                       //nolint:forcetypeassert
+	limit := l.limits[bType]
+	refillPeriod := l.refillPeriods[bType]
+
+	key := ratelimiting.BucketKey{BType: bType, Key: bucketKey}
+	val, _ := l.mBuckets.LoadOrStore(key, &Bucket{}) //nolint:exhaustruct
+	bucket := val.(*Bucket)                          //nolint:forcetypeassert
 
 	bucket.mu.Lock()
 	defer bucket.mu.Unlock()
@@ -127,13 +119,17 @@ func allow(keyBucket string, m *sync.Map, limit uint64, refillPeriod time.Durati
 	return false
 }
 
-func cleanBucket(keyBucket string, m *sync.Map, limit uint64) error {
+func (l *Limiter) cleanBucket(bType ratelimiting.BucketType, bucketKey string) error {
 	now := time.Now().UnixNano()
-	val, ok := m.Load(keyBucket)
+
+	key := ratelimiting.BucketKey{BType: bType, Key: bucketKey}
+	val, ok := l.mBuckets.Load(key)
 	if !ok {
-		return fmt.Errorf("%w: %s", ratelimiting.ErrBucketNotFound, keyBucket)
+		return fmt.Errorf("%w: %s", ratelimiting.ErrBucketNotFound, bucketKey)
 	}
 	bucket := val.(*Bucket) //nolint:forcetypeassert
+
+	limit := l.limits[bType]
 
 	bucket.mu.Lock()
 	defer bucket.mu.Unlock()
@@ -144,25 +140,6 @@ func cleanBucket(keyBucket string, m *sync.Map, limit uint64) error {
 	return nil
 }
 
-func (l *Limiter) CleanBucketIP(ip string) error {
-	return cleanBucket(ip, &l.mBucketsIP, l.limitIP)
-}
-
-func (l *Limiter) CleanBucketPassword(password string) error {
-	return cleanBucket(password, &l.mBucketsPassword, l.limitPassword)
-}
-
-func (l *Limiter) CleanBucketLogin(login string) error {
-	return cleanBucket(login, &l.mBucketsLogin, l.limitLogin)
-}
-
-func (l *Limiter) Stop() {
-	l.doneOnce.Do(func() {
-		close(l.done)
-		l.wgDeleting.Wait()
-	})
-}
-
 func (l *Limiter) startDeleting() {
 	ticker := time.NewTicker(l.interval)
 	l.wgDeleting.Go(func() {
@@ -170,13 +147,37 @@ func (l *Limiter) startDeleting() {
 			select {
 			case <-ticker.C:
 				slog.Debug("Start delete old buckets")
-				deleteOldBuckets(&l.mBucketsIP, l.ttlBucket, l.refillPeriodIP)
-				deleteOldBuckets(&l.mBucketsPassword, l.ttlBucket, l.refillPeriodPassword)
-				deleteOldBuckets(&l.mBucketsLogin, l.ttlBucket, l.refillPeriodLogin)
+				l.deleteOldBuckets()
 			case <-l.done:
 				ticker.Stop()
 				return
 			}
 		}
 	})
+}
+
+func (l *Limiter) deleteOldBuckets() {
+	toDelete := make([]string, 0)
+	now := time.Now().UnixNano()
+
+	l.mBuckets.Range(func(key, value any) bool {
+		bucketKey := key.(ratelimiting.BucketKey) //nolint:forcetypeassert
+		refillPeriod := l.refillPeriods[bucketKey.BType]
+
+		bucket := value.(*Bucket) //nolint:forcetypeassert
+
+		bucket.mu.Lock()
+		lastAccess := bucket.lastRefill + refillPeriod.Nanoseconds()
+		bucket.mu.Unlock()
+
+		if now-lastAccess > l.ttlBucket.Nanoseconds() {
+			toDelete = append(toDelete, key.(string)) //nolint:forcetypeassert
+		}
+
+		return true
+	})
+
+	for _, key := range toDelete {
+		l.mBuckets.Delete(key)
+	}
 }

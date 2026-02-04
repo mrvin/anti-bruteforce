@@ -74,8 +74,6 @@ func RunTestCleanBucket(t *testing.T, limiter Ratelimiter, conf *Conf) {
 	}
 }
 
-// RunCleanNonexistentBucket проверяет ошибку при очистке несуществующего bucket.
-//
 //nolint:thelper
 func RunCleanNonexistentBucket(t *testing.T, limiter Ratelimiter) {
 	if err := limiter.CleanBucketLogin("nonexistent_login"); !errors.Is(err, ErrBucketNotFound) {

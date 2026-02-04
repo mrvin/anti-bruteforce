@@ -5,6 +5,19 @@ import (
 	"time"
 )
 
+type BucketType int
+
+const (
+	TypeIP BucketType = iota
+	TypePassword
+	TypeLogin
+)
+
+type BucketKey struct {
+	BType BucketType
+	Key   string
+}
+
 type Conf struct {
 	LimitLogin    uint64
 	LimitPassword uint64

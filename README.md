@@ -135,11 +135,11 @@ func (b *Buckets) Stats() Stats {
     // Подсчитать bucket'ы и запросы
 }
 ```
-- Добавить валидацию параметров для Allow.
 - Добавить юнит-тесты для удаления bucket'ов.
 - Написаны интеграционные тесты.
+- Добавить реализацию алгоритма leaky bucket.
 
 ### Полезные ссылки
 - [System Design - ограничитель трафика | BACKEND разработка](https://www.youtube.com/watch?v=w4suQQtnYmY)
 - https://dev.to/techschoolguru/how-to-secure-grpc-connection-with-ssl-tls-in-go-4ph
-
+- https://habr.com/ru/companies/spring_aio/articles/991088/

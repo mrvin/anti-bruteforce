@@ -16,13 +16,9 @@ type Window struct {
 }
 
 type Limiter struct {
-	mWindowsLogin    sync.Map // map[string]*Window
-	mWindowsPassword sync.Map
-	mWindowsIP       sync.Map
+	mWindows sync.Map // map[string]*Window
 
-	limitLogin    uint64
-	limitPassword uint64
-	limitIP       uint64
+	limits []uint64
 
 	ttlBucket time.Duration
 	interval  time.Duration
@@ -34,13 +30,9 @@ type Limiter struct {
 
 func New(conf *ratelimiting.Conf) *Limiter {
 	limiter := &Limiter{
-		mWindowsLogin:    sync.Map{},
-		mWindowsPassword: sync.Map{},
-		mWindowsIP:       sync.Map{},
+		mWindows: sync.Map{},
 
-		limitLogin:    conf.LimitLogin,
-		limitPassword: conf.LimitPassword,
-		limitIP:       conf.LimitIP,
+		limits: []uint64{conf.LimitIP, conf.LimitPassword, conf.LimitLogin},
 
 		ttlBucket: conf.TTLBucket,
 		interval:  conf.Interval,
@@ -55,52 +47,48 @@ func New(conf *ratelimiting.Conf) *Limiter {
 	return limiter
 }
 
-func deleteOldWindows(m *sync.Map, ttl time.Duration) {
-	toDelete := make([]string, 0)
-	now := time.Now().UnixNano()
-
-	m.Range(func(key, value any) bool {
-		window := value.(*Window) //nolint:forcetypeassert
-
-		lastTimestamp := int64(0)
-		window.mu.Lock()
-		if len(window.log) > 0 {
-			lastTimestamp = window.log[len(window.log)-1]
-		}
-		window.mu.Unlock()
-
-		if now-lastTimestamp > ttl.Nanoseconds() {
-			toDelete = append(toDelete, key.(string)) //nolint:forcetypeassert
-		}
-
-		return true
-	})
-
-	for _, key := range toDelete {
-		m.Delete(key)
-	}
-}
-
 func (l *Limiter) Allow(ip, password, login string) bool {
-	if !allow(ip, &l.mWindowsIP, l.limitIP, l.interval) {
+	if !l.allow(ratelimiting.TypeIP, ip) {
 		return false
 	}
-	if !allow(password, &l.mWindowsPassword, l.limitPassword, l.interval) {
+	if !l.allow(ratelimiting.TypePassword, password) {
 		return false
 	}
-	if !allow(login, &l.mWindowsLogin, l.limitLogin, l.interval) {
+	if !l.allow(ratelimiting.TypeLogin, login) {
 		return false
 	}
 
 	return true
 }
 
-func allow(keyBucket string, m *sync.Map, limit uint64, interval time.Duration) bool {
-	now := time.Now().UnixNano()
-	val, _ := m.LoadOrStore(keyBucket, &Window{}) //nolint:exhaustruct
-	window := val.(*Window)                       //nolint:forcetypeassert
+func (l *Limiter) CleanBucketIP(ip string) error {
+	return l.cleanWindow(ratelimiting.TypeIP, ip)
+}
 
-	startTimeWindow := now - interval.Nanoseconds()
+func (l *Limiter) CleanBucketPassword(password string) error {
+	return l.cleanWindow(ratelimiting.TypePassword, password)
+}
+
+func (l *Limiter) CleanBucketLogin(login string) error {
+	return l.cleanWindow(ratelimiting.TypeLogin, login)
+}
+
+func (l *Limiter) Stop() {
+	l.doneOnce.Do(func() {
+		close(l.done)
+		l.wgDeleting.Wait()
+	})
+}
+
+func (l *Limiter) allow(bType ratelimiting.BucketType, bucketKey string) bool {
+	now := time.Now().UnixNano()
+	limit := l.limits[bType]
+
+	key := ratelimiting.BucketKey{BType: bType, Key: bucketKey}
+	val, _ := l.mWindows.LoadOrStore(key, &Window{}) //nolint:exhaustruct
+	window := val.(*Window)                          //nolint:forcetypeassert
+
+	startTimeWindow := now - l.interval.Nanoseconds()
 
 	window.mu.Lock()
 	defer window.mu.Unlock()
@@ -121,10 +109,11 @@ func allow(keyBucket string, m *sync.Map, limit uint64, interval time.Duration) 
 	return true
 }
 
-func cleanWindow(keyBucket string, m *sync.Map) error {
-	val, ok := m.Load(keyBucket)
+func (l *Limiter) cleanWindow(bType ratelimiting.BucketType, bucketKey string) error {
+	key := ratelimiting.BucketKey{BType: bType, Key: bucketKey}
+	val, ok := l.mWindows.Load(key)
 	if !ok {
-		return fmt.Errorf("%w: %s", ratelimiting.ErrBucketNotFound, keyBucket)
+		return fmt.Errorf("%w: %s", ratelimiting.ErrBucketNotFound, bucketKey)
 	}
 	window := val.(*Window) //nolint:forcetypeassert
 
@@ -136,25 +125,6 @@ func cleanWindow(keyBucket string, m *sync.Map) error {
 	return nil
 }
 
-func (l *Limiter) CleanBucketIP(ip string) error {
-	return cleanWindow(ip, &l.mWindowsIP)
-}
-
-func (l *Limiter) CleanBucketPassword(password string) error {
-	return cleanWindow(password, &l.mWindowsPassword)
-}
-
-func (l *Limiter) CleanBucketLogin(login string) error {
-	return cleanWindow(login, &l.mWindowsLogin)
-}
-
-func (l *Limiter) Stop() {
-	l.doneOnce.Do(func() {
-		close(l.done)
-		l.wgDeleting.Wait()
-	})
-}
-
 func (l *Limiter) startDeleting() {
 	ticker := time.NewTicker(l.interval)
 	l.wgDeleting.Go(func() {
@@ -162,13 +132,37 @@ func (l *Limiter) startDeleting() {
 			select {
 			case <-ticker.C:
 				slog.Debug("Start delete old windows")
-				deleteOldWindows(&l.mWindowsIP, l.ttlBucket)
-				deleteOldWindows(&l.mWindowsPassword, l.ttlBucket)
-				deleteOldWindows(&l.mWindowsLogin, l.ttlBucket)
+				l.deleteOldWindows()
 			case <-l.done:
 				ticker.Stop()
 				return
 			}
 		}
 	})
+}
+
+func (l *Limiter) deleteOldWindows() {
+	toDelete := make([]string, 0)
+	now := time.Now().UnixNano()
+
+	l.mWindows.Range(func(key, value any) bool {
+		window := value.(*Window) //nolint:forcetypeassert
+
+		lastTimestamp := int64(0)
+		window.mu.Lock()
+		if len(window.log) > 0 {
+			lastTimestamp = window.log[len(window.log)-1]
+		}
+		window.mu.Unlock()
+
+		if now-lastTimestamp > l.ttlBucket.Nanoseconds() {
+			toDelete = append(toDelete, key.(string)) //nolint:forcetypeassert
+		}
+
+		return true
+	})
+
+	for _, key := range toDelete {
+		l.mWindows.Delete(key)
+	}
 }
