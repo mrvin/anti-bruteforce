@@ -142,7 +142,7 @@ func (l *Limiter) startDeleting() {
 }
 
 func (l *Limiter) deleteOldWindows() {
-	toDelete := make([]string, 0)
+	toDelete := make([]ratelimiting.BucketKey, 0)
 	now := time.Now().UnixNano()
 
 	l.mWindows.Range(func(key, value any) bool {
@@ -156,7 +156,7 @@ func (l *Limiter) deleteOldWindows() {
 		window.mu.Unlock()
 
 		if now-lastTimestamp > l.ttlBucket.Nanoseconds() {
-			toDelete = append(toDelete, key.(string)) //nolint:forcetypeassert
+			toDelete = append(toDelete, key.(ratelimiting.BucketKey)) //nolint:forcetypeassert
 		}
 
 		return true

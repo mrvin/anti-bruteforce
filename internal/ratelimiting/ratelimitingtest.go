@@ -32,7 +32,7 @@ func RunTestAllow(t *testing.T, limiter Ratelimiter, conf *Conf) {
 		wg.Wait()
 
 		if gotAllowedRequests := allowedRequests.Load(); gotAllowedRequests != wantAllowedRequests {
-			t.Errorf("Allowed requests: got: %d want: %d", gotAllowedRequests, wantAllowedRequests)
+			t.Errorf("Allowed requests: got: %d want: %d repet: %d", gotAllowedRequests, wantAllowedRequests, i+1)
 		}
 		allowedRequests.Store(0)
 

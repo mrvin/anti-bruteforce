@@ -1,5 +1,5 @@
-// Package tokenbucket реализует алгоритм маркерной корзины (token bucket) с ленивым пополнением (при запросе).
-package tokenbucket
+// Package leakybucket реализует алгоритм дырявого ведра на основе счетчика (leaking bucket) с ленивым вытиканием (при запросе).
+package leakybucket
 
 import (
 	"fmt"
@@ -11,9 +11,9 @@ import (
 )
 
 type Bucket struct {
-	tokens     uint64
-	lastRefill int64 // time.Unix()
-	mu         sync.Mutex
+	count    uint64
+	lastLeak int64 // time.Unix()
+	mu       sync.Mutex
 }
 
 type Limiter struct {
@@ -24,7 +24,7 @@ type Limiter struct {
 	ttlBucket time.Duration
 	interval  time.Duration
 
-	refillPeriods []time.Duration
+	leakPeriods []time.Duration
 
 	done       chan struct{}
 	doneOnce   sync.Once
@@ -41,7 +41,7 @@ func New(conf *ratelimiting.Conf) *Limiter {
 		interval:  conf.Interval,
 
 		// Необходимо подбирать подходящие значения для периода пополнения и размера пополнения корзины.
-		refillPeriods: []time.Duration{
+		leakPeriods: []time.Duration{
 			time.Duration(uint64(conf.Interval.Nanoseconds()) / conf.LimitIP),       //nolint:gosec
 			time.Duration(uint64(conf.Interval.Nanoseconds()) / conf.LimitPassword), //nolint:gosec
 			time.Duration(uint64(conf.Interval.Nanoseconds()) / conf.LimitLogin),    //nolint:gosec
@@ -93,26 +93,30 @@ func (l *Limiter) Stop() {
 func (l *Limiter) allow(bType ratelimiting.BucketType, bucketKey string) bool {
 	now := time.Now().UnixNano()
 	limit := l.limits[bType]
-	refillPeriod := l.refillPeriods[bType]
+	leakPeriod := l.leakPeriods[bType]
 
 	key := ratelimiting.BucketKey{BType: bType, Key: bucketKey}
-	val, _ := l.mBuckets.LoadOrStore(key, &Bucket{tokens: limit, lastRefill: now}) //nolint:exhaustruct
-	bucket := val.(*Bucket)                                                        //nolint:forcetypeassert
+	val, _ := l.mBuckets.LoadOrStore(key, &Bucket{lastLeak: now}) //nolint:exhaustruct
+	bucket := val.(*Bucket)                                       //nolint:forcetypeassert
 
 	bucket.mu.Lock()
 	defer bucket.mu.Unlock()
 
-	if bucket.lastRefill != now {
-		elapsed := now - bucket.lastRefill
-		refillTokens := uint64(elapsed / refillPeriod.Nanoseconds()) //nolint:gosec
-		if refillTokens > 0 {
-			bucket.tokens = min(limit, bucket.tokens+refillTokens)
-			bucket.lastRefill = now
+	if bucket.lastLeak != now {
+		elapsed := now - bucket.lastLeak
+		leakReq := uint64(elapsed / leakPeriod.Nanoseconds()) //nolint:gosec
+		if leakReq > 0 {
+			if leakReq >= bucket.count {
+				bucket.count = 0
+			} else {
+				bucket.count -= leakReq
+			}
+			bucket.lastLeak = now
 		}
 	}
 
-	if bucket.tokens > 0 {
-		bucket.tokens--
+	if bucket.count < limit {
+		bucket.count++
 		return true
 	}
 
@@ -129,13 +133,11 @@ func (l *Limiter) cleanBucket(bType ratelimiting.BucketType, bucketKey string) e
 	}
 	bucket := val.(*Bucket) //nolint:forcetypeassert
 
-	limit := l.limits[bType]
-
 	bucket.mu.Lock()
 	defer bucket.mu.Unlock()
 
-	bucket.lastRefill = now
-	bucket.tokens = limit
+	bucket.lastLeak = now
+	bucket.count = 0
 
 	return nil
 }
@@ -162,12 +164,12 @@ func (l *Limiter) deleteOldBuckets() {
 
 	l.mBuckets.Range(func(key, value any) bool {
 		bucketKey := key.(ratelimiting.BucketKey) //nolint:forcetypeassert
-		refillPeriod := l.refillPeriods[bucketKey.BType]
+		leakPeriod := l.leakPeriods[bucketKey.BType]
 
 		bucket := value.(*Bucket) //nolint:forcetypeassert
 
 		bucket.mu.Lock()
-		lastAccess := bucket.lastRefill + refillPeriod.Nanoseconds()
+		lastAccess := bucket.lastLeak + leakPeriod.Nanoseconds()
 		bucket.mu.Unlock()
 
 		if now-lastAccess > l.ttlBucket.Nanoseconds() {

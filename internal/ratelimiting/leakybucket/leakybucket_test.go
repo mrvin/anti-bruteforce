@@ -1,4 +1,4 @@
-package fixedwindow
+package leakybucket
 
 import (
 	"testing"
@@ -23,28 +23,28 @@ var confBenchmark = ratelimiting.Conf{
 	TTLBucket:     1000 * time.Millisecond,
 }
 
-func TestAllowFixedWindow(t *testing.T) {
+func TestAllowLeakyBucket(t *testing.T) {
 	limiter := New(&confLimiterTest)
 	defer limiter.Stop()
 
 	ratelimiting.RunTestAllow(t, limiter, &confLimiterTest)
 }
 
-func TestCleanBucketFixedWindow(t *testing.T) {
+func TestCleanBucketLeakyBucket(t *testing.T) {
 	limiter := New(&confLimiterTest)
 	defer limiter.Stop()
 
 	ratelimiting.RunTestCleanBucket(t, limiter, &confLimiterTest)
 }
 
-func TestCleanNonexistentBucketFixedWindow(t *testing.T) {
+func TestCleanNonexistentBucketLeakyBucket(t *testing.T) {
 	limiter := New(&confLimiterTest)
 	defer limiter.Stop()
 
 	ratelimiting.RunCleanNonexistentBucket(t, limiter)
 }
 
-func BenchmarkFixedWindow(b *testing.B) {
+func BenchmarkLeakyBucket(b *testing.B) {
 	limiter := New(&confBenchmark)
 	defer limiter.Stop()
 

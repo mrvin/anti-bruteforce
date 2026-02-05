@@ -87,8 +87,8 @@ func (l *Limiter) allow(bType ratelimiting.BucketType, bucketKey string) bool {
 	limit := l.limits[bType]
 
 	key := ratelimiting.BucketKey{BType: bType, Key: bucketKey}
-	val, _ := l.mWindows.LoadOrStore(key, &Window{}) //nolint:exhaustruct
-	window := val.(*Window)                          //nolint:forcetypeassert
+	val, _ := l.mWindows.LoadOrStore(key, &Window{startTime: now}) //nolint:exhaustruct
+	window := val.(*Window)                                        //nolint:forcetypeassert
 
 	window.mu.Lock()
 	defer window.mu.Unlock()
@@ -97,10 +97,6 @@ func (l *Limiter) allow(bType ratelimiting.BucketType, bucketKey string) bool {
 		window.prevCount = window.currCount
 		window.currCount = 0
 		window.startTime += l.interval.Nanoseconds()
-		if window.startTime+(l.interval.Nanoseconds()*2) < now { //nolint:mnd
-			window.prevCount = 0
-			window.startTime = now
-		}
 	}
 
 	fInterval := float64(l.interval.Nanoseconds())
@@ -154,7 +150,7 @@ func (l *Limiter) startDeleting() {
 }
 
 func (l *Limiter) deleteOldWindows() {
-	toDelete := make([]string, 0)
+	toDelete := make([]ratelimiting.BucketKey, 0)
 	now := time.Now().UnixNano()
 
 	l.mWindows.Range(func(key, value any) bool {
@@ -165,7 +161,7 @@ func (l *Limiter) deleteOldWindows() {
 		window.mu.Unlock()
 
 		if now-lastAccess > l.ttlBucket.Nanoseconds() {
-			toDelete = append(toDelete, key.(string)) //nolint:forcetypeassert
+			toDelete = append(toDelete, key.(ratelimiting.BucketKey)) //nolint:forcetypeassert
 		}
 
 		return true
